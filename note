@@ -1,0 +1,9 @@
+here = (lat, lon, ele)
+chokai = (lat, lon, ele)
+
+diamond_chokai = here -> chokai -> sun(Date)
+方位誤差,仰角誤差
+
+方位,仰角,距離 = (緯度,経度,標高)->場所(緯度,経度,標高)
+方位誤差,仰角誤差 = (方位,仰角,標高)->天体(Date)
+

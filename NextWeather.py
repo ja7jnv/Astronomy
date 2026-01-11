@@ -15,8 +15,8 @@ def get_weather_forecast(latitude, longitude, api_key):
     :return: 予報データのリスト
     """
     # 5 Day / 3 Hour Forecast APIのエンドポイント
-    #endpoint = "https://api.openweathermap.org/data/2.5/weather"   # 現在の天気
     endpoint = "https://api.openweathermap.org/data/2.5/forecast"   # 5日間/3時間ごとの予報
+    # endpoint = "https://api.openweathermap.org/data/2.5/weather"   # 現在の天気
     
     # リクエストパラメータ
     params = {
