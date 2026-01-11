@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
 
@@ -44,7 +44,11 @@ def get_weather_forecast(latitude, longitude, api_key):
             # 日時情報を整形
             timestamp = forecast.get("dt")
             if timestamp:
-                forecast_time = datetime.fromtimestamp(timestamp)
+                # JST（UTC+9）のタイムゾーン定義を作成
+                JST = timezone(timedelta(hours=9))
+
+                # タイムゾーンを指定して変換（どこで実行してもJSTで表示）
+                forecast_time = datetime.fromtimestamp(timestamp, JST)
                 
                 # 最高気温と最低気温を取得
                 main_data = forecast.get("main", {})
