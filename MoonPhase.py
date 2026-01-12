@@ -32,9 +32,16 @@ obs.date = datetime.datetime.now(datetime.UTC)
 # 観測者から見た天体を計算。
 
 moon.compute(obs)
-print(f"日時：{datetime.datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S %Z')}")
+next_rise_utc = obs.next_rising(moon)
+next_set_utc = obs.next_setting(moon)
+rise_time = next_rise_utc.datetime().replace(tzinfo=ZoneInfo("UTC")).astimezone(JST)
+set_time = next_set_utc.datetime().replace(tzinfo=ZoneInfo("UTC")).astimezone(JST)
+
+print(f"現在日時：{datetime.datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S %Z')}")
 print(f"地平線からの仰角：{deg(moon.alt)}")
 print(f"方角：{deg(moon.az)}")
 print(f"月相：{moon.moon_phase}  輝面比（光っている部分の割合）")
 print(f"月齢：{obs.date - ephem.previous_new_moon(obs.date)}")
+print(f"月出: {rise_time.strftime('%Y/%m/%d %H:%M:%S')}")
+print(f"月入: {set_time.strftime('%Y/%m/%d %H:%M:%S')}")
 
