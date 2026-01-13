@@ -1,0 +1,16 @@
+?start      : cmd
+
+//...
+cmd         : var | show
+var         : "変数" var_name "に" number "を代入"
+show        : (var_name|number) "を表示"
+//...
+
+var_name    : CNAME
+number      : NUMBER
+
+%import common.NUMBER
+%import common.CNAME
+%import common.WS
+
+%ignore WS  // 空白文字は無視する
