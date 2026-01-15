@@ -1,57 +1,64 @@
-from lark import Lark, Transformer
+from lark import Lark
+from lark.exceptions import UnexpectedToken
+from interpreter import DummyInterpreter
 
-# 文法定義
-grammar = """
-    ?start: sum
-    ?sum: product
-        | sum "+" product   -> add
-        | sum "-" product   -> subtract
-    ?product: atom
-        | product "*" atom  -> multiply
-        | product "/" atom  -> divide
-    ?atom: NUMBER           -> number
-        | "-" atom          -> negative
-        | "(" sum ")"
-    %import common.NUMBER
-    %import common.WS
-    %ignore WS
-"""
+GRAMMAR_FILE = "sso.lark"
 
-class CalculateTree(Transformer):
-    def number(self, n):
-        return float(n[0])
-    
-    def negative(self, n):
-        return -n[0]
-    
-    def add(self, args):
-        return args[0] + args[1]
-    
-    def subtract(self, args):
-        return args[0] - args[1]
-    
-    def multiply(self, args):
-        return args[0] * args[1]
-    
-    def divide(self, args):
-        return args[0] / args[1]
+def main():
+    with open(GRAMMAR_FILE, "r", encoding="utf-8") as f:
+        grammar = f.read()
 
-# パーサーの作成
-parser = Lark(grammar, parser='lalr', transformer=CalculateTree())
+    parser = Lark(
+        grammar,
+        parser="lalr",
+        start="program",
+        propagate_positions=True,
+        maybe_placeholders=False,
+    )
 
-# 計算機能の実装
-def calculate(expression):
-    try:
-        return parser.parse(expression)
-    except Exception as e:
-        return f"エラー: {str(e)}"
+    print("Lark interactive parser")
+    print("Ctrl-D or Ctrl-C to exit")
+    print("-" * 60)
 
-# 使用例
-if __name__ == "__main__":
+    buffer = ""
+    continuing = False
+
     while True:
-        expr = input("計算式を入力してください（終了する場合は 'q' を入力）: ")
-        if expr.lower() == 'q':
+        try:
+            prompt = "... " if continuing else ">>> "
+            line = input(prompt)
+        except (EOFError, KeyboardInterrupt):
+            print("\nbye.")
             break
-        result = calculate(expr)
-        print(f"結果: {result}")
+
+        stripped = line.rstrip()
+
+        if stripped.endswith("\\"):
+            # 継続行：改行を入れない
+            buffer += stripped[:-1] + " "
+            continuing = True
+            continue
+        else:
+            # 最終行
+            if continuing:
+                buffer += stripped.lstrip() + "\n"
+            else:
+                buffer += line + "\n"
+            continuing = False
+
+        try:
+            tree = parser.parse(buffer)
+            # print(tree.pretty())
+
+            interp = DummyInterpreter()
+            interp.visit(tree)
+
+        except UnexpectedToken as e:
+            print("\n[Parse error]")
+            print(e)
+
+        buffer = ""
+
+if __name__ == "__main__":
+    main()
 

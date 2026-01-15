@@ -49,9 +49,11 @@ parser = Lark(grammar, start='program', parser='lalr')
 interpreter = MyInterpreter()
 
 source = """
-x = 10;
-y = 20;
-result = x + y * 5;
+a = 5;
+b = 3;
+c = 6;
+
+result = a + b * c;
 """
 
 tree = parser.parse(source)

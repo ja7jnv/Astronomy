@@ -1,16 +1,57 @@
-?start      : cmd
+// ==============================
+// Lexer
+// ==============================
 
-//...
-cmd         : var | show
-var         : "変数" var_name "に" number "を代入"
-show        : (var_name|number) "を表示"
-//...
+%import common.SIGNED_NUMBER -> NUMBER
+%import common.WS_INLINE
+%import common.NEWLINE
 
-var_name    : CNAME
-number      : NUMBER
+%ignore WS_INLINE
+%ignore /\\\r?\n/
 
-%import common.NUMBER
-%import common.CNAME
-%import common.WS
+NAME_UPPER : /[A-Z][A-Za-z0-9_]*/
+NAME_LOWER : /[a-z_][A-Za-z0-9_]*/
 
-%ignore WS  // 空白文字は無視する
+SEMI : ";"
+
+// ==============================
+// Parser
+// ==============================
+
+start : program
+
+program : statement*
+
+statement : assignment end
+          | expr end
+          | end
+
+end : SEMI
+    | SEMI? NEWLINE+
+
+assignment : NAME_LOWER "=" expr
+
+?expr : arrow_expr
+
+?arrow_expr : arrow_expr "->" sum_expr   -> arrow
+            | sum_expr
+
+?sum_expr : sum_expr "+" mul_expr        -> add
+          | sum_expr "-" mul_expr        -> sub
+          | mul_expr
+
+?mul_expr : mul_expr "*" unary_expr      -> mul
+          | mul_expr "/" unary_expr      -> div
+          | unary_expr
+
+?unary_expr : "-" unary_expr             -> neg
+            | atom
+
+?atom : constructor
+      | NAME_UPPER                       -> literal
+      | NAME_LOWER                       -> var
+      | NUMBER                           -> number
+      | "(" expr ")"
+
+constructor : NAME_UPPER "(" [expr ("," expr)*] ")"
+

@@ -1,10 +1,10 @@
 ?program: [(state)+]
 
 // statement
-?state: expr ";"
+?state: expr NEWLINE
       | function
-      | assignment ";"
-      | return_state ";"
+      | assignment NEWLINE
+      | return_state NEWLINE
 function: "def" new_symbol "(" [parameter ("," parameter)*] ")" "{" program "}"
 assignment: new_symbol "=" expr
 return_state: "return" expr
@@ -37,5 +37,11 @@ parameter: WORD
 %import common.WORD
 %import common.SIGNED_NUMBER
 %import common.WS
+
+%import common.WS_INLINE
+%import common.NEWLINE
+
+%ignore WS_INLINE
 %ignore WS
 
+%ignore /\\\r?\n/   // バックスラッシュ＋改行は継続行
