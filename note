@@ -22,3 +22,9 @@ moon_rise = Moon(Rise,Tommorow)
 az : zzz.zz
 phase : pp.pp(%)
 age : dd.ddd
+
+Moon(引数)で引数は、
+リテラルは順不同、優先順位は検討項目、
+Date=2026-01-31、AM、PM、
+Time=13:15:00
+Now、Tommorow、Jan、・・・
