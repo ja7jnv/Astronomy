@@ -10,3 +10,15 @@ diamond_chokai = here -> chokai -> sun(Date)
 Horizon(方位) : Hereからの仰角0の山
 方位：0-360, east, west
 
+実装に向けた具体案：
+yuzawa = Observer(lat,lon,elev)
+moon = yuzawa -> Moon(Today)
+alt: xx.xxx
+az : zzz.zz
+phase: pp.ppp(%)
+age : dd.ddd
+
+moon_rise = Moon(Rise,Tommorow)
+az : zzz.zz
+phase : pp.pp(%)
+age : dd.ddd

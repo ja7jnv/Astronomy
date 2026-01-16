@@ -64,6 +64,7 @@ class DummyInterpreter(Interpreter):
         left = self.visit(tree.children[0])
         right = self.visit(tree.children[1])
         print(f"[arrow] {left} -> {right}")
+        print(type(left), type(right))
         return f"({left} -> {right})"
 
     # --------
