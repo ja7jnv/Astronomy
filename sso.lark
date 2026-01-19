@@ -1,57 +1,51 @@
-// ==============================
+// ================================
 // Lexer
-// ==============================
+// ================================
 
-%import common.SIGNED_NUMBER -> NUMBER
+%import common.CNAME           -> NAME
+%import common.SIGNED_NUMBER   -> NUMBER
 %import common.WS_INLINE
 %import common.NEWLINE
 
 %ignore WS_INLINE
-%ignore /\\\r?\n/
 
-NAME_UPPER : /[A-Z][A-Za-z0-9_]*/
-NAME_LOWER : /[a-z_][A-Za-z0-9_]*/
+_CONTINUATION: /\\(\r?\n)+/
+%ignore _CONTINUATION
 
-SEMI : ";"
 
-// ==============================
+// ================================
 // Parser
-// ==============================
+// ================================
 
-start : program
+start: (statement end)*
 
-program : statement*
+end: NEWLINE
+   | ";"
 
-statement : assignment end
-          | expr end
-          | end
+statement: assignment
+         | expr        -> expr_statement
 
-end : SEMI
-    | SEMI? NEWLINE+
+assignment: NAME "=" expr
 
-assignment : NAME_LOWER "=" expr
+?expr: arrow
 
-?expr : arrow_expr
+?arrow: sum
+      | arrow "->" sum   -> arrow
 
-?arrow_expr : arrow_expr "->" sum_expr   -> arrow
-            | sum_expr
+?sum: term
+    | sum "+" term     -> add
+    | sum "-" term     -> sub
 
-?sum_expr : sum_expr "+" mul_expr        -> add
-          | sum_expr "-" mul_expr        -> sub
-          | mul_expr
+?term: factor
+     | term "*" factor  -> mul
+     | term "/" factor  -> div
 
-?mul_expr : mul_expr "*" unary_expr      -> mul
-          | mul_expr "/" unary_expr      -> div
-          | unary_expr
+?factor: constructor
+       | var
+       | NUMBER        -> number
+       | "(" expr ")"
 
-?unary_expr : "-" unary_expr             -> neg
-            | atom
+constructor: NAME "(" [expr ("," expr)*] ")"
 
-?atom : constructor
-      | NAME_UPPER                       -> literal
-      | NAME_LOWER                       -> var
-      | NUMBER                           -> number
-      | "(" expr ")"
-
-constructor : NAME_UPPER "(" [expr ("," expr)*] ")"
+var: NAME
 

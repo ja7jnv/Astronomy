@@ -11,7 +11,7 @@ def main():
     parser = Lark(
         grammar,
         parser="lalr",
-        start="program",
+        start="start",
         propagate_positions=True,
         maybe_placeholders=False,
     )
