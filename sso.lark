@@ -22,30 +22,42 @@ start: (statement end)*
 end: NEWLINE
    | ";"
 
-statement: assignment
-         | expr        -> expr_statement
+// ---------- statements ----------
 
-assignment: NAME "=" expr
+statement: assignment
+         | expr              -> expr_statement
+
+assignment: NAME "=" expr    -> assign_stmt
+
+
+// ---------- expressions ----------
 
 ?expr: arrow
 
 ?arrow: sum
-      | arrow "->" sum   -> arrow
+      | arrow "->" sum       -> arrow
 
 ?sum: term
-    | sum "+" term     -> add
-    | sum "-" term     -> sub
+    | sum "+" term           -> add
+    | sum "-" term           -> sub
 
 ?term: factor
-     | term "*" factor  -> mul
-     | term "/" factor  -> div
+     | term "*" factor       -> mul
+     | term "/" factor       -> div
 
 ?factor: constructor
        | var
-       | NUMBER        -> number
+       | NUMBER              -> number
        | "(" expr ")"
 
-constructor: NAME "(" [expr ("," expr)*] ")"
+// ---------- constructor ----------
+
+constructor: NAME "(" [arg ("," arg)*] ")"
+
+?arg: kwarg
+    | expr
+
+kwarg: NAME "=" expr         -> kwarg
 
 var: NAME
 

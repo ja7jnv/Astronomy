@@ -1,12 +1,14 @@
 from lark import Lark
 from lark.visitors import Interpreter
-from sso_objects import HereObject
+from sso_objects import *
 
 RESERVED = {"Here", "Moon", "Sun"}
 
-class DummyInterpreter(Interpreter):
+class SSOInterpreter(Interpreter):
     def __init__(self):
         self.env = {}
+
+    # -------- statements --------
 
     def assignment(self, tree):
         name = tree.children[0].value
@@ -18,100 +20,79 @@ class DummyInterpreter(Interpreter):
         print(f"{name} = {value}")
         return value
 
+    def expr_statement(self, tree):
+        value = self.visit(tree.children[0])
+        if isinstance(value, HereObject):
+            value.show()
+        elif value is not None:
+            print(value)
+        return value
+
+    # -------- expressions --------
+
+    def arrow(self, tree):
+        left = self.visit(tree.children[0])
+        right = self.visit(tree.children[1])
+        print(f"ARROW: {left} -> {right}")
+        return ("arror", left, right)
+
+    def add(self, tree):
+        left = self.visit(tree.children[0])
+        right = self.visit(tree.children[1])
+        print("ADD:", left, "+", right)
+        return None
+
+    # -------- atoms --------
+
     def constructor(self, tree):
         name = tree.children[0].value
         args = [self.visit(c) for c in tree.children[1:]]
 
         if name == "Here":
-            here = HereObject(*args)
+            here = self._build_here(args)
             self.env["Here"] = here
-            print("現在地を登録しました")
             return here
-
-        if name == "Moon":
-            print("月を評価します（ダミー）")
-            return MoonObject(args[0])
 
         print(f"{name}({args})")
         return None
 
-    def add(self, tree):
-        left = self.visit(tree.children[0])
-        right = self.visit(tree.children[1])
+    def kwarg(self, tree):
+        name = tree.children[0].value
+        value = self.visit(tree.children[1])
+        return KwArg(name, value)
 
-        if isinstance(left, HereObject) and isinstance(right, AltObject):
-            observer = ObserverObject(left, right.alt)
-            return observer
-
-        print("ADD:", left, right)
-        return None
-
-    def arrow(self, tree):
-        src = self.visit(tree.children[0])
-        dst = self.visit(tree.children[1])
-
-        print("観測計算（ダミー）")
-        print("仰角: -0.25")
-        print("方角: 241.3")
-        print("月相: 0.0033")
-        return None
+    def var(self, tree):
+        name = tree.children[0].value
+        return self.env.get(name, name)
 
     def number(self, tree):
         return float(tree.children[0])
 
-    def NAME_LOWER(self, tok):
-        return self.env.get(tok.value, tok.value)
+    # -------- helpers --------
 
-    def NAME_UPPER(self, tok):
-        return tok.value
- 
-    # --------
-    # literals / atoms
-    # --------
+    def _build_here(self, args):
+        lat = lon = elev = None
+        pos = []
 
-    def var(self, tree):
-        name = tree.children[0]
-        print(f"[var] {name}")
-        return f"<var {name}>"
+        for a in args:
+            if isinstance(a, KwArg):
+                if a.name == "Lat":
+                    lat = a.value
+                elif a.name == "Lon":
+                    lon = a.value
+                elif a.name == "Elev":
+                    elev = a.value
+                else:
+                    print(f"Unknown keyword: {a.name}")
+            else:
+                pos.append(a)
 
-    def literal(self, tree):
-        name = tree.children[0]
-        print(f"[literal] {name}")
-        return f"<literal {name}>"
+        if pos:
+            if lat is None and len(pos) > 0:
+                lat = pos[0]
+            if lon is None and len(pos) > 1:
+                lon = pos[1]
+            if elev is None and len(pos) > 2:
+                elev = pos[2]
 
-    # --------
-    # expressions
-    # --------
-
-    def sub(self, tree):
-        left = self.visit(tree.children[0])
-        right = self.visit(tree.children[1])
-        print(f"[sub] {left} - {right}")
-        return f"({left}-{right})"
-
-    def mul(self, tree):
-        left = self.visit(tree.children[0])
-        right = self.visit(tree.children[1])
-        print(f"[mul] {left} * {right}")
-        return f"({left}*{right})"
-
-    def div(self, tree):
-        left = self.visit(tree.children[0])
-        right = self.visit(tree.children[1])
-        print(f"[div] {left} / {right}")
-        return f"({left}/{right})"
-
-    def neg(self, tree):
-        value = self.visit(tree.children[0])
-        print(f"[neg] -{value}")
-        return f"(-{value})"
-
-    # --------
-    # statements
-    # --------
-
-    def statement(self, tree):
-        # statement 自体は値を持たない
-        for child in tree.children:
-            self.visit(child)
-
+        return HereObject(lat, lon, elev)

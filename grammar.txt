@@ -1,0 +1,42 @@
+・ephemを直感的に呼び出して天体情報を表示するDSL
+・先頭文字が大文字の名前 [A-Z]+[_a-zA-Z0-9]* は、オブジェクトとして扱う
+・先頭文字が小文字か_の名前 [_a-z]+[_a-zA-Z0-9]* は、変数として扱う
+・四則演算機能を持つ
+>>> Place = Yuzawa
+>>> lat = 39.15
+>>> lon = 140.5
+>>> elev= 100
+>>> Observer(Place, lat, lon, elev)
+Plase: Yuzawa
+Lat: 39.15
+Lon: 140.5
+Elev: 100
+>>> Observer　//オブジェクト名のみで呼ばれた場合は現在の情報を表示
+Plase: Yuzawa
+Lat: 39.15
+Lon: 140.5
+Elev: 100
+>>> Observer()　//引数無しで呼ばれた場合は不足情報を問い合わせる
+... 場所 = Yuzawa
+... 緯度 = 39.15
+... 経度 = 140.5
+... 標高 = 100.0
+>>> Observer -> Moon
+現在時刻
+現時点の方角
+現時点の仰角
+
+>>> Observer -> Rise -> Moon
+次回月の出時刻
+その際の方角
+
+>>> Fuji = Mountain("Mt.Fuji", 35.36, 138.73, 3776)
+Name: Mt.Fuji
+Lat: 35.36
+Lon: 138.73
+Elev: 3776
+
+>>> Observer -> Fuji -> Moon
+月が富士山頂に掛かる時刻
+その際の方角
+その際の高度（仰角）

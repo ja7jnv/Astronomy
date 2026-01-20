@@ -1,6 +1,6 @@
 from lark import Lark
 from lark.exceptions import UnexpectedToken
-from interpreter import DummyInterpreter
+from interpreter import SSOInterpreter
 
 GRAMMAR_FILE = "sso.lark"
 
@@ -50,7 +50,7 @@ def main():
             tree = parser.parse(buffer)
             # print(tree.pretty())
 
-            interp = DummyInterpreter()
+            interp = SSOInterpreter()
             interp.visit(tree)
 
         except UnexpectedToken as e:
