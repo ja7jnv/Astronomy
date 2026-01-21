@@ -1,0 +1,58 @@
+// sso.lark
+start: statement*
+
+// ステートメント: 代入、式、または空行。文末は改行かセミコロン
+statement: (assignment | expr) (";" | NEWLINE)
+         | NEWLINE
+
+// 代入: 変数またはオブジェクトへの代入
+assignment: VAR_NAME "=" expr  -> assign_var
+          | OBJ_NAME "=" expr  -> assign_obj
+
+// 式: 優先順位の低い順に定義
+?expr: arrow
+
+// アロー演算子 (左結合)
+?arrow: sum
+      | arrow "->" sum -> arrow_op
+
+// 加減算
+?sum: product
+    | sum "+" product -> add
+    | sum "-" product -> sub
+
+// 乗除算
+?product: power
+        | product "*" power -> mul
+        | product "/" power -> div
+
+// 累乗
+?power: atom
+      | atom "^" power -> pow
+
+// 最小単位
+?atom: NUMBER           -> number
+     | STRING           -> string_literal
+     | VAR_NAME         -> var_load
+     | OBJ_NAME         -> obj_load
+     | funccall
+     | "(" expr ")"
+
+// 関数呼び出し
+funccall: OBJ_NAME "(" [arglist] ")"
+arglist: expr ("," expr)*
+
+// トークン定義
+VAR_NAME: /[a-z_][a-zA-Z0-9_]*/
+OBJ_NAME: /[A-Z][a-zA-Z0-9_]*/
+
+// ダブルクォートまたはシングルクォートで囲まれた文字列
+STRING: /"[^"]*"/ | /'[^']*'/
+
+COMMENT: "//" /[^\n]/*
+
+%import common.NUMBER
+%import common.WS
+%import common.NEWLINE
+%ignore WS
+%ignore COMMENT

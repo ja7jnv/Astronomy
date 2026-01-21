@@ -1,0 +1,101 @@
+# 太陽系観測DSL
+* ephemを直感的に呼び出して天体情報を表示するDSL
+* 文法解釈にLarkを用い、Interpreterでstatement毎に対話的に実行する
+* 基本構文は
+  start: (statement end)*
+  end: NEWLINE
+     | ";"
+* 先頭文字が大文字の名前 [A-Z]+[_a-zA-Z0-9]* は、オブジェクトとして扱う
+* 天体やオブザーバーの他に山をオブジェクトMountainとして扱う
+* 先頭文字が小文字か_の名前 [_a-z]+[_a-zA-Z0-9]* は、変数として扱う
+* 四則演算、累乗等の起動計算に必要な演算機能を持つ
+* 合と衝、及び山との重なりを表すアロー演算子->を定義する
+* ephemが持つ天体名（MarsやMoon、Sun）、及びObserver、Mountain、Rise、Set、Date、Now、Tz、Horizon、...天文用語などは予約語
+* >>> は、REPLからのプロンプト。>>>の下部はREPLからのエコー
+* //以降はコメントとして扱う
+* REPLはhistory機能を持ち上矢印↑、下矢印↓で前回入力値を呼び出せる
+* 文法と解釈後の処理を確認するため、第1段階は月に固定して機能確認を行う
+* 表示や時差など曖昧な場合の解釈は日本をベースにする
+* 以下は、実行例
+>>> Tz = 9 //初期値（デフォルト）は9とする
+UTCからの時差: +9
+
+>>> DateTime = Date("2026/1/21, 8:20:00")
+DateTime: 2026年1月21日8時20分0秒 (+9)
+
+>>> Time = Now()
+Time: 2026年1月21日9時30分25秒 (+9)
+
+>>> lat = 39.15
+lat: 39.15
+
+>>> lon = 140.5
+lon: 140.5
+
+>>> elev= 100
+elev: 100
+
+>>> Yuzawa = Observer(lat, lon, elev)  //変数名をObserver.name
+Yuzawa: (Observer)
+ Lat: 39.15
+ Lon: 140.5
+ Elev: 100
+
+>>> Yuzawa  //オブジェクト名のみで呼ばれた場合は現在の情報を表示
+Yuzawa: (Observer)
+ Lat: 39.15
+ Lon: 140.5
+ Elev: 100
+
+>>> Yuzawa = Observer()  //引数無しで呼ばれた場合は不足情報を問い合わせる
+... 緯度 = 39.15
+... 経度 = 140.5
+... 標高 = 100.0
+Yuzawa: (Observer)
+ Lat: 39.15
+ Lon: 140.5
+ Elev: 100
+
+>>> Yuzawa -> Moon
+>>> Yuzawa -> Moon(Now)
+>>> Yuzawa -> Moon(Now())
+Yuzawa:
+ 時刻: 現在時刻
+ 方角: 現時点の月の方角
+ 高度: 現時点の月の仰角
+ 月齢: 現時点の月齢
+
+Now_Moon = Yuzawa -> Moon
+Now_moon:
+ 観測地: Yuzawa
+ 時刻: 現在時刻
+ 方角: 現時点の月の方角
+ 高度: 現時点の月の仰角
+ 月齢: 現時点の月齢
+ 
+>>> Yuzawa -> Rise -> Moon //Riseは東側Horizon、Setは西側Horizonとして扱う
+Yuzawa:
+ 月の出: 次回の月の出時刻
+ 方角:   その際の方角
+
+>>> Yuzawa -> Zenith -> Moon
+Yuzawa:
+ 月の南中: 次回の月の南中時刻
+
+>>> Fuji = Mountain(35.36, 138.73, 3776) //Mountain属性を持つオブジェクト
+Fuji: (Mountain)
+ Lat: 35.36
+ Lon: 138.73
+ Elev: 3776
+
+>>> Yuzawa -> Fuji -> Moon
+Yuzawa:
+ 時刻: 次回に月が富士山頂に掛かる日時
+ 方角: その際の方角
+ 高度: その際の高度（仰角）
+
+＊実際はありえないので
+Yuzawa:
+ 山(Fuji)に月が掛かる可能性はありません
+
+>>> Echo = Off //代入文での値のエコーを止める
