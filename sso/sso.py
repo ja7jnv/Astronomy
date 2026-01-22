@@ -1,48 +1,75 @@
-# sso.py
 import sys
-from lark import Lark
+import cmd
+import readline  # 矢印キー・履歴が有効
+from lark import Lark, Token
 from interpreter import SSOInterpreter
-from classes import SSOBase
 
-# 文法ファイルの読み込み
-with open("sso.lark", "r", encoding="utf-8") as f:
-    grammar = f.read()
+class SSOShell(cmd.Cmd):
+    intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
+    prompt = ">>> "
 
-parser = Lark(grammar, parser='lalr', start='start')
-interpreter = SSOInterpreter()
-
-def repl():
-    print("Solar System Observer DSL (type 'exit' to quit)")
-    print(">>> Tz = 9 // Default Timezone") # 
-    
-    while True:
+    def __init__(self):
+        super().__init__()
+        # 文法ファイルの読み込み
         try:
-            text = input(">>> ") # 
-            if text.strip() in ["exit", "quit"]:
-                break
-            if not text.strip():
-                continue
+            with open("sso.lark", "r", encoding="utf-8") as f:
+                grammar = f.read()
+            self.parser = Lark(grammar, parser='lalr')
+            self.interp = SSOInterpreter()
+        except FileNotFoundError:
+            print("Error: 'sso.lark' file not found.")
+            sys.exit(1)
 
-            # ヒストリー機能は input() が標準でサポートする環境が多いが、
-            # 明示的には readline モジュールを import することで有効化される（Unix系）
-            
-            tree = parser.parse(text + "\n") # 末尾に改行を付与して解析
-            
-            # 各ステートメントを実行
-            for statement in tree.children:
-                if statement.data == 'statement':
-                    # statement -> (assign | expr)
-                    child = statement.children[0]
-                    result = interpreter.transform(child)
-                    
-                    # Echo制御 [cite: 2, 3]
-                    if interpreter.echo and result is not None:
-                        # 代入文の場合は結果を表示しない等の制御も可能だが、
-                        # プロンプト例では代入後もエコーしている
-                        print(f"{result}")
+    def default(self, line):
+        if not line.strip():
+            return
+        try:
+            # 1. パースを実行（末尾に改行を付けて文末を認識させる）
+            tree = self.parser.parse(line + "\n")
+
+            # 2. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
+            results = self.interp.visit(tree)
+
+            # 3. 表示処理。結果が単一でもリストでも対応できるようにする
+            if not isinstance(results, list):
+                results = [results] # 単一の結果をリストに包んで共通処理へ
+
+            for res in results:
+                # Token(改行等)は無視
+                if isinstance(res, Token):
+                    continue
+
+                # リストが入れ子（ネスト）になっている場合を想定して再帰的に処理
+                if isinstance(res, list):
+                    for sub_res in res:
+                        if not isinstance(sub_res, Token) and sub_res is not None:
+                            if self.interp.config.echo:
+                                print(sub_res)
+                else:
+                    # 通常の出力
+                    if res is not None and self.interp.config.echo:
+                        print(res)
 
         except Exception as e:
             print(f"Error: {e}")
 
+    # --- シェル制御コマンド ---
+    def do_exit(self, arg):
+        """終了コマンド"""
+        return True # Trueを返すとループが終了する
+
+    def do_quit(self, arg):
+        """終了コマンド"""
+        return True
+
+    # EOF (Ctrl+D) での終了対応
+    def do_EOF(self, arg):
+        print()
+        return True
+
 if __name__ == "__main__":
-    repl()
+    try:
+        SSOShell().cmdloop()
+    except KeyboardInterrupt:
+        # Ctrl+C での強制終了をきれいに処理
+        print("\nGoodbye.")

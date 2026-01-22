@@ -1,95 +1,72 @@
-# classes.py
 import ephem
 import math
 from datetime import datetime, timedelta
 
-# デフォルト設定
-DEFAULT_TZ = 9.0
+# システム設定管理クラス（シングルトン的な役割）
+class SSOSystemConfig:
+    def __init__(self):
+        self.tz = 9.0
+        self.echo = True
 
-class SSOBase:
-    """DSL内で扱う全てのオブジェクトの基底クラス"""
+    def set_tz(self, value):
+        self.tz = float(value)
+        return f"UTCからの時差: +{self.tz:g}"
+
+    def set_echo(self, value):
+        # 0, Off, False などをオフとみなす柔軟な処理
+        s_val = str(value).lower()
+        self.echo = s_val not in ["0", "off", "false"]
+        return f"Echo mode: {'On' if self.echo else 'Off'}"
+
+class SSOTime:
+    def __init__(self, date_str=None, config=None):
+        self.config = config
+        tz_offset = config.tz if config else 9.0
+        
+        if date_str:
+            # 入力されたJST時刻を一度 Python datetime にして、時差を引いてUTCにする
+            # ephem.Date は内部で常に UTC として保持されるべき
+            try:
+                # ephem.Date から datetime を経由して計算
+                temp_date = ephem.Date(date_str)
+                self.date = ephem.Date(temp_date.datetime() - timedelta(hours=tz_offset))
+            except Exception:
+                self.date = ephem.now()
+        else:
+            self.date = ephem.now()
+
     def __repr__(self):
-        return f"<{self.__class__.__name__}>"
+        # 表示時は UTC の self.date に Tz を足して JST にする
+        tz = self.config.tz if self.config else 9.0
+        d = self.date.datetime() + timedelta(hours=tz)
+        return d.strftime(f"%Y年%m月%d日 %H時%M分%S秒 (+{tz:g})")
 
-class SSONumber(SSOBase):
-    def __init__(self, value):
-        self.value = float(value)
-    def __repr__(self):
-        return str(self.value)
-
-class SSOTime(SSOBase):
-    """時刻オブジェクト"""
-    def __init__(self, ephem_date=None, tz_offset=DEFAULT_TZ):
-        self.date = ephem.Date(ephem_date) if ephem_date else ephem.now()
-        self.tz = tz_offset
-
-    def __repr__(self):
-        d = self.date.datetime() + timedelta(hours=self.tz)
-        return d.strftime(f"%Y年%m月%d日%H時%M分%S秒 ({self.tz:+g})")
-
-    def to_ephem(self):
-        return self.date
-
-class SSOMountain(SSOBase):
-    """山オブジェクト """
-    def __init__(self, lat, lon, elev):
-        self.lat = lat
-        self.lon = lon
-        self.elev = elev
-        self.name = "Mountain"
-
+class SSOMountain:
+    def __init__(self, lat, lon, elev, name="Mountain"):
+        self.lat, self.lon, self.elev, self.name = lat, lon, elev, name
     def __repr__(self):
         return f"{self.name}: (Mountain)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
-class SSOObserver(SSOBase):
-    """観測者オブジェクト """
+class SSOObserver:
     def __init__(self, lat=None, lon=None, elev=0, name="Observer"):
         self.name = name
+        self.lat, self.lon, self.elev = lat, lon, elev
         self.ephem_obs = ephem.Observer()
-        if lat is None:
-            # 引数なしの場合は問い合わせ 
-            try:
-                self.lat = float(input("... 緯度 = "))
-                self.lon = float(input("... 経度 = "))
-                self.elev = float(input("... 標高 = "))
-            except ValueError:
-                print("数値で入力してください。デフォルト値(0)を使用します。")
-                self.lat, self.lon, self.elev = 0, 0, 0
-        else:
-            self.lat = lat
-            self.lon = lon
-            self.elev = elev
-        
-        self._update_ephem()
-
-    def _update_ephem(self):
-        self.ephem_obs.lat = str(self.lat)
-        self.ephem_obs.lon = str(self.lon)
-        self.ephem_obs.elevation = self.elev
-
-    def set_date(self, sso_time):
-        self.ephem_obs.date = sso_time.to_ephem()
-
+        if lat is not None:
+            self.ephem_obs.lat, self.ephem_obs.lon = str(lat), str(lon)
+            self.ephem_obs.elevation = elev
     def __repr__(self):
         return f"{self.name}: (Observer)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
 class SSOCalculator:
-    """計算ロジックを集約"""
     @staticmethod
-    def observe(observer, target_name, time_obj=None, mode="Now", context_obj=None):
+    def observe(observer, target_name, config, mode="Now", context=None):
         """
-        arrow演算子のロジック
-        mode: 'Now', 'Rise', 'Set', 'Zenith', 'Mountain'
-        context_obj: Mountainオブジェクトなど
+        config: 時差表示のために必要
         """
         obs = observer.ephem_obs
-        # 時間の設定
-        if time_obj:
-            obs.date = time_obj.to_ephem()
-        else:
-            obs.date = ephem.now()
-
-        # 天体の取得
+        
+        # 天体取得 (Moon固定ではなく、ephemにあるものを動的に取得)
         try:
             body = getattr(ephem, target_name)()
         except AttributeError:
@@ -97,62 +74,31 @@ class SSOCalculator:
 
         body.compute(obs)
         
-        # 出力用ヘルパー
-        def format_deg(rad):
-            return str(math.degrees(rad))
+        def to_deg(rad): return math.degrees(rad)
+        
+        # 結果表示用のTimeオブジェクト作成ヘルパー
+        def make_time(edate): return SSOTime(None, config=config) # 中身を入れ替える
+        
+        # 実際には SSOTime(edate, config) のように初期化したいが
+        # SSOTimeの実装に合わせて日付をセットする
+        def format_time(edate):
+            t = SSOTime(None, config=config)
+            t.date = edate
+            return t
 
         if mode == "Now":
-            #  現在時刻の観測
-            return (f"{observer.name}:\n"
-                    f" 時刻: {SSOTime(obs.date)}\n"
-                    f" 方角: {format_deg(body.az)}\n"
-                    f" 高度: {format_deg(body.alt)}\n"
-                    f" 月齢: {body.phase if hasattr(body, 'phase') else '-'}")
-
-        elif mode in ["Rise", "Set", "Zenith"]:
-            #  次回の現象
+            return (f"{observer.name}:\n 時刻: {format_time(obs.date)}\n"
+                    f" 方角: {to_deg(body.az):.2f}°\n 高度: {to_deg(body.alt):.2f}°\n"
+                    f" 月齢: {getattr(body, 'phase', '-')}")
+        
+        if mode in ["Rise", "Set"]:
             try:
-                if mode == "Rise":
-                    event_time = obs.next_rising(body)
-                    label = "出"
-                elif mode == "Set":
-                    event_time = obs.next_setting(body)
-                    label = "没"
-                elif mode == "Zenith":
-                    event_time = obs.next_transit(body)
-                    label = "南中"
-                
-                # その時刻での計算
-                obs.date = event_time
-                body.compute(obs)
-                
-                return (f"{observer.name}:\n"
-                        f" {target_name}の{label}: {SSOTime(event_time)}\n"
-                        f" 方角:   {format_deg(body.az)}")
+                method = obs.next_rising if mode == "Rise" else obs.next_setting
+                event_time = method(body)
+                return f"{observer.name}:\n {target_name}の{'出' if mode=='Rise' else '没'}: {format_time(event_time)}"
             except ephem.AlwaysUpError:
-                return f"{target_name} は常に地平線の上にあります"
+                return f"{target_name} は沈みません"
             except ephem.NeverUpError:
-                return f"{target_name} は地平線の下にあります"
-
-        elif mode == "Mountain" and context_obj:
-            #  山との重なり (簡易実装: 方角の一致を確認)
-            # 実際には山頂の仰角と天体の高度などの複雑な計算が必要ですが、
-            # ここではプロンプトの例にある「可能性はありません」のロジックを模倣します。
-            
-            # 簡易判定: 山の方角を計算
-            m_lat = math.radians(context_obj.lat)
-            m_lon = math.radians(context_obj.lon)
-            o_lat = math.radians(observer.lat)
-            o_lon = math.radians(observer.lon)
-            
-            # 方位角計算 (簡易)
-            d_lon = m_lon - o_lon
-            y = math.sin(d_lon) * math.cos(m_lat)
-            x = math.cos(o_lat) * math.sin(m_lat) - math.sin(o_lat) * math.cos(m_lat) * math.cos(d_lon)
-            bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
-            
-            return (f"{observer.name}:\n"
-                    f" 山({context_obj.name})の方位: {bearing:.2f}\n"
-                    f" {target_name}が掛かる可能性: (詳細計算未実装のため要確認)")
-
-        return "Unknown Operation"
+                return f"{target_name} は昇りません"
+        
+        return "Unknown Mode"
