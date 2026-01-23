@@ -37,15 +37,26 @@ class SSOInterpreter(Interpreter):
         return value
 
     # --- 演算系 ---
+
     def arrow_op(self, tree):
-        # arrow "->" sum
         left = self.visit(tree.children[0])
         right = self.visit(tree.children[1])
+
+        obs = left[0] if isinstance(left, tuple) else left
+        #print(f"**debug**\n{obs}\n**debug_end**")
+        mode = left[1] if isinstance(left, tuple) else "Now"
+        target = right
+
+        if isinstance(obs, SSOObserver):
+            # 1. ユーザーが明示的に時刻変数を設定しているかチェック
+            # DateTime または Time という変数があればそれを使う
+            target_time = self.variables.get("DateTime") or self.variables.get("Time")
+            obs.set_time(target_time)
 
         # 1. Observer -> Mode (Rise, Set)
         if isinstance(left, SSOObserver) and right in ["Rise", "Set"]:
             return (left, right)
-        
+
         # 2. (Observer, Mode) -> Target (Moon)
         if isinstance(left, tuple) and isinstance(right, str):
             obs, mode = left
@@ -56,6 +67,8 @@ class SSOInterpreter(Interpreter):
             return SSOCalculator.observe(left, right, self.config)
 
         return f"Error: Invalid arrow operation {left} -> {right}"
+
+    ###
 
     def add(self, tree): return self.visit(tree.children[0]) + self.visit(tree.children[1])
     def sub(self, tree): return self.visit(tree.children[0]) - self.visit(tree.children[1])
@@ -104,6 +117,7 @@ class SSOInterpreter(Interpreter):
         # 関数ごとの処理
         if func_name == "Date":
             d_str = args[0] if args else None
+            print(f"**debug**\n{d_str}\n**debug_end**")
             return SSOTime(d_str, config=self.config)
         
         if func_name == "Now":

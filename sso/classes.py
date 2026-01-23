@@ -1,3 +1,7 @@
+"""
+このモジュール内のクラスは、すべてUTCで処理する。
+JTSや他の地方時は、その変換メソッド以外では一切考慮しない。
+"""
 import ephem
 import math
 from datetime import datetime, timedelta
@@ -24,16 +28,17 @@ class SSOTime:
         tz_offset = config.tz if config else 9.0
         
         if date_str:
-            # 入力されたJST時刻を一度 Python datetime にして、時差を引いてUTCにする
-            # ephem.Date は内部で常に UTC として保持されるべき
             try:
-                # ephem.Date から datetime を経由して計算
-                temp_date = ephem.Date(date_str)
-                self.date = ephem.Date(temp_date.datetime() - timedelta(hours=tz_offset))
+                self.date = ephem.Date(date_str)
             except Exception:
                 self.date = ephem.now()
         else:
             self.date = ephem.now()
+
+    def get_jst_str(self, tz_offset):
+        # 表示するときだけ、指定された時差を足して文字列にする
+        jst_date = ephem.Date(self.date + tz_offset * ephem.hour)
+        return jst_date.datetime().strftime(f"%Y年%m月%d日 %H時%M分%S秒 (+{tz_offset:g})")
 
     def __repr__(self):
         # 表示時は UTC の self.date に Tz を足して JST にする
@@ -55,6 +60,21 @@ class SSOObserver:
         if lat is not None:
             self.ephem_obs.lat, self.ephem_obs.lon = str(lat), str(lon)
             self.ephem_obs.elevation = elev
+            # 初期状態は現在時刻(UTC)
+            self.ephem_obs.date = ephem.now()
+
+    def set_time(self, sso_time_obj=None):
+        """
+        観測地点の時刻を設定する。
+        引数が None なら現在時刻(UTC)に同期する。
+        """
+        if sso_time_obj:
+            # SSOTimeオブジェクトが持つUTC時刻をセット
+            self.ephem_obs.date = sso_time_obj.date
+        else:
+            # 現在のUTC時刻に同期
+            self.ephem_obs.date = ephem.now()
+
     def __repr__(self):
         return f"{self.name}: (Observer)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
