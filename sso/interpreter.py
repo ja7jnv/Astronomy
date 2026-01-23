@@ -1,6 +1,7 @@
 from lark.visitors import Interpreter
 from lark import Token
 from classes import SSOObserver, SSOMountain, SSOTime, SSOCalculator, SSOSystemConfig
+from datetime import datetime, timezone
 
 class SSOInterpreter(Interpreter):
     def __init__(self):
@@ -118,7 +119,11 @@ class SSOInterpreter(Interpreter):
         if func_name == "Date":
             d_str = args[0] if args else None
             print(f"**debug**\n{d_str}\n**debug_end**")
-            return SSOTime(d_str, config=self.config)
+            date_str = d_str + "+" + f"{int(self.config.tz*100):04}"
+            print(f"**debug**\n{date_str}\n**debug_end**")
+            dt = datetime.strptime(date_str, "%Y/%m/%d %H:%M:%S%z")
+            utc_dt = dt.astimezone(timezone.utc)
+            return SSOTime(utc_dt, config=self.config)
         
         if func_name == "Now":
             # 引数なしで現在時刻を返す

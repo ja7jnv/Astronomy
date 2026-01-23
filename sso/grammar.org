@@ -66,12 +66,14 @@ Yuzawa:
  月齢: 現時点の月齢
 
 Now_Moon = Yuzawa -> Moon
-Now_moon:
+Now_Moon:
  観測地: Yuzawa
  時刻: 現在時刻
  方角: 現時点の月の方角
  高度: 現時点の月の仰角
  月齢: 現時点の月齢
+
+>>> Plot(Now_Moon) //Matplotlibを用いて地表から眺めた軌道（出から没）の現在地を３Ｄ表示
  
 >>> Yuzawa -> Rise -> Moon //Riseは東側Horizon、Setは西側Horizonとして扱う
 Yuzawa:
@@ -98,4 +100,5 @@ Yuzawa:
 Yuzawa:
  山(Fuji)に月が掛かる可能性はありません
 
->>> Echo = Off //代入文での値のエコーを止める
+>>> off = "off"
+>>> Echo = off //代入文での値のエコーを止める

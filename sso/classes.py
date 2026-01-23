@@ -4,7 +4,7 @@ JTSや他の地方時は、その変換メソッド以外では一切考慮し�
 """
 import ephem
 import math
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # システム設定管理クラス（シングルトン的な役割）
 class SSOSystemConfig:
@@ -35,16 +35,8 @@ class SSOTime:
         else:
             self.date = ephem.now()
 
-    def get_jst_str(self, tz_offset):
-        # 表示するときだけ、指定された時差を足して文字列にする
-        jst_date = ephem.Date(self.date + tz_offset * ephem.hour)
-        return jst_date.datetime().strftime(f"%Y年%m月%d日 %H時%M分%S秒 (+{tz_offset:g})")
-
     def __repr__(self):
-        # 表示時は UTC の self.date に Tz を足して JST にする
-        tz = self.config.tz if self.config else 9.0
-        d = self.date.datetime() + timedelta(hours=tz)
-        return d.strftime(f"%Y年%m月%d日 %H時%M分%S秒 (+{tz:g})")
+        return f"<SSOTime UTC={self.date}>"
 
 class SSOMountain:
     def __init__(self, lat, lon, elev, name="Mountain"):
