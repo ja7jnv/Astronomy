@@ -32,10 +32,12 @@ class SSOShell(cmd.Cmd):
 
             # 2. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
             results = self.interp.visit(tree)
+            print(results)
 
             # 3. 表示処理。結果が単一でもリストでも対応できるようにする
             if not isinstance(results, list):
                 results = [results] # 単一の結果をリストに包んで共通処理へ
+                #「リストの強要」というテクニックらしい
 
             for res in results:
                 # Token(改行等)は無視
