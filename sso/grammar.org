@@ -21,10 +21,10 @@
 UTCからの時差: +9
 
 >>> DateTime = Date("2026/1/21 8:20:00")
-DateTime: 2026年1月21日8時20分0秒 (+9)
+DateTime: 2026年1月21日8時20分0秒 (UTC)
 
 >>> Time = Now()
-Time: 2026年1月21日9時30分25秒 (+9)
+Time: 2026年1月21日9時30分25秒 (UTC)
 
 >>> lat = 39.15
 lat: 39.15
@@ -42,7 +42,7 @@ Yuzawa: (Observer)
  Elev: 100
 
 >>> Yuzawa  //オブジェクト名のみで呼ばれた場合は現在の情報を表示
-Yuzawa: (Observer)
+ (Observer)
  Lat: 39.15
  Lon: 140.5
  Elev: 100
@@ -60,6 +60,7 @@ Yuzawa: (Observer)
 >>> Yuzawa -> Moon(Now)
 >>> Yuzawa -> Moon(Now())
 Yuzawa:
+ 観測地: Yuzawa
  時刻: 現在時刻
  方角: 現時点の月の方角
  高度: 現時点の月の仰角

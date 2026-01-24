@@ -1,0 +1,9 @@
+print(tree.pretty()) の活用：
+Interpreter が見ている「地図」をテキスト形式で綺麗に表示してくれます。どのノードがどの階層にあるか一目瞭然になります。
+
+visit_children(tree) の動き：
+yaccのように全要素を順番に処理したいだけなら、自分で children[0] ... と書かずに self.visit_children(tree) と書くだけで、子ノード全員の実行結果をリストで取得できます。
+
+トークンの value と type：
+tree.children[n] が Token だった場合、それは終端記号（文字列）です。その中身を str() で取るか、.value で取るかを意識すると、型エラーを減らせます。
+

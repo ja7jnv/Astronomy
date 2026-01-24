@@ -27,6 +27,9 @@ class SSOShell(cmd.Cmd):
             # 1. パースを実行（末尾に改行を付けて文末を認識させる）
             tree = self.parser.parse(line + "\n")
 
+            # 慣れるまで、解析木を表示する
+            print(tree.pretty())
+
             # 2. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
             results = self.interp.visit(tree)
 

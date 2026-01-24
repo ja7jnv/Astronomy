@@ -36,7 +36,7 @@ class SSOTime:
             self.date = ephem.now()
 
     def __repr__(self):
-        return f"<SSOTime UTC={self.date}>"
+        return f"{self.date} (UTC)"
 
 class SSOMountain:
     def __init__(self, lat, lon, elev, name="Mountain"):
@@ -68,7 +68,7 @@ class SSOObserver:
             self.ephem_obs.date = ephem.now()
 
     def __repr__(self):
-        return f"{self.name}: (Observer)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
+        return f"(Observer)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
 class SSOCalculator:
     @staticmethod

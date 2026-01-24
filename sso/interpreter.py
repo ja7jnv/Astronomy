@@ -32,19 +32,19 @@ class SSOInterpreter(Interpreter):
         # 通常オブジェクト
         if hasattr(value, 'name'):
             value.name = name
+
         self.objects[name] = value
-        
-        # オブジェクトそのものを返す（REPL表示用）
-        return value
+        return f"{name}: {value}"
 
     # --- 演算系 ---
 
     def arrow_op(self, tree):
+        print(tree.pretty())
         left = self.visit(tree.children[0])
         right = self.visit(tree.children[1])
+        print(f"left:{left}\nright:{right}")
 
         obs = left[0] if isinstance(left, tuple) else left
-        #print(f"**debug**\n{obs}\n**debug_end**")
         mode = left[1] if isinstance(left, tuple) else "Now"
         target = right
 
@@ -111,17 +111,15 @@ class SSOInterpreter(Interpreter):
         if len(tree.children) > 1:
             child = tree.children[1]
             # LarkのInterpreterでは、省略可能な [arglist] が無い場合、
-            # その位置には None や 閉じカッコの Token が入ることがあります
+            # その位置には None や 閉じカッコの Token が入ることがある
             if hasattr(child, 'data'): # ノード(Tree)であることを確認
                 args = self.visit(child)
 
         # 関数ごとの処理
         if func_name == "Date":
             d_str = args[0] if args else None
-            print(f"**debug**\n{d_str}\n**debug_end**")
-            date_str = d_str + "+" + f"{int(self.config.tz*100):04}"
-            print(f"**debug**\n{date_str}\n**debug_end**")
-            dt = datetime.strptime(date_str, "%Y/%m/%d %H:%M:%S%z")
+            d_str = d_str + "+" + f"{int(self.config.tz*100):04}"
+            dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
             utc_dt = dt.astimezone(timezone.utc)
             return SSOTime(utc_dt, config=self.config)
         
