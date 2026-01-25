@@ -6,6 +6,13 @@ import ephem
 import math
 from datetime import datetime
 
+import logging # ログの設定
+logging.basicConfig(
+level=logging.DEBUG, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger =  logging.getLogger(__name__)
+
 # システム設定管理クラス（シングルトン的な役割）
 class SSOSystemConfig:
     def __init__(self):

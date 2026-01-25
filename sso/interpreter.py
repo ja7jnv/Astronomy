@@ -3,6 +3,13 @@ from lark import Token
 from classes import SSOObserver, SSOMountain, SSOTime, SSOCalculator, SSOSystemConfig
 from datetime import datetime, timezone
 
+import logging # ログの設定
+logging.basicConfig(
+level=logging.DEBUG, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger =  logging.getLogger(__name__)
+
 class SSOInterpreter(Interpreter):
     def __init__(self):
         self.variables = {}
@@ -39,17 +46,15 @@ class SSOInterpreter(Interpreter):
     # --- 演算系 ---
 
     def arrow_op(self, tree):
-        print(tree.pretty())
+        logger.debug(tree.pretty())
         left = self.visit(tree.children[0])
         right = self.visit(tree.children[1])
-        print(f"left:{left}\nright:{right}")
+        logger.debug(f"\nleft:{left}\nright:{right}")
 
         obs = left[0] if isinstance(left, tuple) else left
         mode = left[1] if isinstance(left, tuple) else "Now"
         target = right
-        print("**debug**")
-        print(f"obs:{obs}\nmode:{mode}\ntarget:{target}")
-        print("**debug_end**")
+        logger.debug(f"\nobs:{obs}\nmode:{mode}\ntarget:{target}")
 
         if isinstance(obs, SSOObserver):
             # 1. ユーザーが明示的に時刻変数を設定しているかチェック
@@ -59,18 +64,18 @@ class SSOInterpreter(Interpreter):
 
         # 1. Observer -> Mode (Rise, Set)
         if isinstance(left, SSOObserver) and right in ["Rise", "Set"]:
-            print(f"***debug pattern 1 Observer -> Mode (Rise, Set)")
+            logger.debug(f"pattern 1 Observer -> Mode (Rise, Set)")
             return (left, right)
 
         # 2. (Observer, Mode) -> Target (Moon)
         if isinstance(left, tuple) and isinstance(right, str):
             obs, mode = left
-            print(f"***debug pattern 2 (Observer, Mode) -> Target (Moon)")
+            logger.debug(f"pattern 2 (Observer, Mode) -> Target (Moon)")
             return SSOCalculator.observe(obs, right, self.config, mode=mode)
         
         # 3. Observer -> Target (Moon)
         if isinstance(left, SSOObserver) and isinstance(right, str):
-            print(f"***debug pattern 3 Observer -> Target (Moon)")
+            logger.debug(f"pattern 3 Observer -> Target (Moon)")
             return SSOCalculator.observe(left, right, self.config)
 
         return f"Error: Invalid arrow operation {left} -> {right}"

@@ -4,6 +4,13 @@ import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
 from interpreter import SSOInterpreter
 
+import logging # ログの設定
+logging.basicConfig(
+level=logging.DEBUG, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger =  logging.getLogger(__name__)
+
 class SSOShell(cmd.Cmd):
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
     prompt = ">>> "
@@ -28,11 +35,11 @@ class SSOShell(cmd.Cmd):
             tree = self.parser.parse(line + "\n")
 
             # 慣れるまで、解析木を表示する
-            print(tree.pretty())
+            logger.debug(tree.pretty())
 
             # 2. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
             results = self.interp.visit(tree)
-            print(results)
+            logger.info(results)
 
             # 3. 表示処理。結果が単一でもリストでも対応できるようにする
             if not isinstance(results, list):
