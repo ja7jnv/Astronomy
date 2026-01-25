@@ -55,14 +55,14 @@ class SSOObserver:
             # 初期状態は現在時刻(UTC)
             self.ephem_obs.date = ephem.now()
 
-    def set_time(self, sso_time_obj=None):
+    def set_time(self, sso_time_body=None):
         """
         観測地点の時刻を設定する。
         引数が None なら現在時刻(UTC)に同期する。
         """
-        if sso_time_obj:
+        if sso_time_body:
             # SSOTimeオブジェクトが持つUTC時刻をセット
-            self.ephem_obs.date = sso_time_obj.date
+            self.ephem_obs.date = sso_time_body.date
         else:
             # 現在のUTC時刻に同期
             self.ephem_obs.date = ephem.now()

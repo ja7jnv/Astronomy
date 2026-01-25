@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 class SSOInterpreter(Interpreter):
     def __init__(self):
         self.variables = {}
-        self.objects = {}
+        self.body = {}
         self.config = SSOSystemConfig() # Tz, Echoなどを管理
 
     # --- 代入系 ---
@@ -18,8 +18,8 @@ class SSOInterpreter(Interpreter):
         self.variables[name] = value
         return f"{name}: {value}"
 
-    def assign_obj(self, tree):
-        # assignment: OBJ_NAME "=" expr
+    def assign_body(self, tree):
+        # assignment: BODY_NAME "=" expr
         name = tree.children[0].value
         value = self.visit(tree.children[1])
 
@@ -33,7 +33,7 @@ class SSOInterpreter(Interpreter):
         if hasattr(value, 'name'):
             value.name = name
 
-        self.objects[name] = value
+        self.body[name] = value
         return f"{name}: {value}"
 
     # --- 演算系 ---
@@ -47,6 +47,9 @@ class SSOInterpreter(Interpreter):
         obs = left[0] if isinstance(left, tuple) else left
         mode = left[1] if isinstance(left, tuple) else "Now"
         target = right
+        print("**debug**")
+        print(f"obs:{obs}\nmode:{mode}\ntarget:{target}")
+        print("**debug_end**")
 
         if isinstance(obs, SSOObserver):
             # 1. ユーザーが明示的に時刻変数を設定しているかチェック
@@ -56,15 +59,18 @@ class SSOInterpreter(Interpreter):
 
         # 1. Observer -> Mode (Rise, Set)
         if isinstance(left, SSOObserver) and right in ["Rise", "Set"]:
+            print(f"***debug pattern 1 Observer -> Mode (Rise, Set)")
             return (left, right)
 
         # 2. (Observer, Mode) -> Target (Moon)
         if isinstance(left, tuple) and isinstance(right, str):
             obs, mode = left
+            print(f"***debug pattern 2 (Observer, Mode) -> Target (Moon)")
             return SSOCalculator.observe(obs, right, self.config, mode=mode)
         
         # 3. Observer -> Target (Moon)
         if isinstance(left, SSOObserver) and isinstance(right, str):
+            print(f"***debug pattern 3 Observer -> Target (Moon)")
             return SSOCalculator.observe(left, right, self.config)
 
         return f"Error: Invalid arrow operation {left} -> {right}"
@@ -90,18 +96,18 @@ class SSOInterpreter(Interpreter):
         name = tree.children[0].value
         return self.variables.get(name, 0.0)
 
-    def obj_load(self, tree):
+    def body_load(self, tree):
         name = tree.children[0].value
-        # 予約語的なオブジェクト名
-        if name in ["Rise", "Set", "Moon", "Sun", "Mars", "Jupiter", "Venus", "Saturn"]:
+        # 惑星名の予約語オブジェクト
+        if name in ["Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]:
             return name
         # 登録済みオブジェクト
-        return self.objects.get(name, name)
+        return self.body.get(name, name)
 
     # --- 関数呼び出し ---
 
     def funccall(self, tree):
-        # funccall: OBJ_NAME "(" [arglist] ")"
+        # funccall: BODY_NAME "(" [arglist] ")"
         func_name = tree.children[0].value
         
         # 引数の処理

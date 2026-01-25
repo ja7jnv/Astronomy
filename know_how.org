@@ -1,3 +1,6 @@
+# Larkの解析機能
+* 解析木の解説
+https://share.google/aimode/Af135Oo3VbdpfO9tI
 print(tree.pretty()) の活用：
 Interpreter が見ている「地図」をテキスト形式で綺麗に表示してくれます。どのノードがどの階層にあるか一目瞭然になります。
 
@@ -6,4 +9,49 @@ yaccのように全要素を順番に処理したいだけなら、自分で chi
 
 トークンの value と type：
 tree.children[n] が Token だった場合、それは終端記号（文字列）です。その中身を str() で取るか、.value で取るかを意識すると、型エラーを減らせます。
+
+# cmdクラスの活用
+* ヘルプ機能
+* 補完機能
+https://share.google/aimode/ONVoj3Q0iqdCejX3M
+
+実装に役立つ構成要素
+１．Completer のカスタマイズ:
+prompt_toolkit.completion.Completer クラスを継承して、
+get_completions メソッド内で lark.InteractiveParser.accepts() を
+呼び出すようにすると、文法に基づいた正確な自動補完が実現できます。
+
+２．動的なプロンプトの変更:
+入力待ちの状態で、次に何が必要かに応じてプロンプト（>>> や ... 緯度 = ）を
+動的に書き換えることができます。
+
+３．複数行入力（Multiline）モード:
+DSLで定義したコマンドが完結するまで入力を続けさせたい場合、
+PromptSession の multiline オプションと Validator を組み合わせると、
+構文的に正しい状態になるまで Enter を押しても改行として扱い、
+パース可能になったら実行する、という挙動も作れます。
+
+４．次に調べるべきクラス名
+prompt_toolkit.shortcuts.PromptSession: 基本的な対話セッション。
+prompt_toolkit.lexers.Lexer: 入力中の文字にシンタックスハイライト（色付け）を適用する際に使用。
+prompt_toolkit.validation.Validator: パースエラーがある間は入力を確定させない（継続させる）ロジックに使用。
+
+# オブジェクトの属性を変数化
+Pythonの標準関数である getattr() を使うことで、
+ephem.Mars のようなクラス名を変数で指定し、動的に呼び出すことが可能です。 
+* ephem.Mars の Mars の部分を変数に置き換える
+https://share.google/aimode/XN1tjWDfrKBNKjTqM
+https://zenn.dev/giba/articles/a4e5c2bc9ca6f1
+
+* 実装方法
+変数に惑星名の文字列（例: 'Mars', 'Jupiter'）を代入し、
+それを getattr(ephem, 変数名)() として呼び出します。 
+python
+import ephem
+
+* コード例
+planet_name = 'Mars' #惑星名を変数に格納
+planet = getattr(ephem, planet_name)()  # getattrを使って動的にクラスを取得し、インスタンス化する
+planet.compute('2026/1/1')  # 通常通り使用可能
+print(f"{planet.name} の赤経: {planet.ra}, 赤緯: {planet.dec}")
 
