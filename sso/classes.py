@@ -45,15 +45,9 @@ class SSOTime:
     def __repr__(self):
         return f"{self.date} (UTC)"
 
-class SSOMountain:
-    def __init__(self, lat, lon, elev, name="Mountain"):
-        self.lat, self.lon, self.elev, self.name = lat, lon, elev, name
-    def __repr__(self):
-        return f"{self.name}: (Mountain)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
-
 class SSOObserver:
-    def __init__(self, lat=None, lon=None, elev=0, name="Observer"):
-        self.name = name
+    def __init__(self, attr, lat=None, lon=None, elev=0):
+        self.attr = attr
         self.lat, self.lon, self.elev = lat, lon, elev
         self.ephem_obs = ephem.Observer()
         if lat is not None:
@@ -75,7 +69,17 @@ class SSOObserver:
             self.ephem_obs.date = ephem.now()
 
     def __repr__(self):
-        return f"(Observer)\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
+        return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
+
+class SSOEphem:
+    def __init__(self, attr, value, config):
+        self.attr = attr
+        self.value = value
+        logger.debug(f"ephhem call: ephem.{attr}({value})")
+        return
+
+    def __repr__(self):
+        return f"(Ephem)"
 
 class SSOCalculator:
     @staticmethod

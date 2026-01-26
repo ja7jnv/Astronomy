@@ -1,6 +1,6 @@
 from lark.visitors import Interpreter
 from lark import Token
-from classes import SSOObserver, SSOMountain, SSOTime, SSOCalculator, SSOSystemConfig
+from classes import SSOEphem, SSOObserver, SSOTime, SSOCalculator, SSOSystemConfig
 from datetime import datetime, timezone
 
 import logging # ログの設定
@@ -112,8 +112,12 @@ class SSOInterpreter(Interpreter):
     # --- 関数呼び出し ---
 
     def funccall(self, tree):
-        # funccall: BODY_NAME "(" [arglist] ")"
-        func_name = tree.children[0].value
+        # funccall: BODY_NAME | VAR_NAME "(" [arglist] ")"
+        # 基本的にephem.funccall(...) にする。
+        # Dateは時差が加算されているのでUTCに変換してfunccallする。
+        # Mountain等のDSL固有要素はこの関数内で呼び出しクラスを振り分ける。
+        attr = tree.children[0].value
+        logger.debug(f"body(): name={attr}")
         
         # 引数の処理
         args = []
@@ -127,30 +131,34 @@ class SSOInterpreter(Interpreter):
                 args = self.visit(child)
 
         # 関数ごとの処理
-        if func_name == "Date":
+
+        if attr == "Date":
             d_str = args[0] if args else None
             d_str = d_str + "+" + f"{int(self.config.tz*100):04}"
             dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
             utc_dt = dt.astimezone(timezone.utc)
-            return SSOTime(utc_dt, config=self.config)
+            return SSOEphem(attr, utc_dt, config=self.config)
         
-        if func_name == "Now":
+        if attr == "Now":
             # 引数なしで現在時刻を返す
-            return SSOTime(None, config=self.config)
+            return SSOEphem("now", config=self.config)
 
-        if func_name == "Observer":
+        if (attr == "Observer") | (attr == "Mountain"):
+            logger.debug(f"{attr} command: args={args}")
+            
             if not args:
                 # 対話入力モード
                 try:
                     lat = float(input("... 緯度 = "))
                     lon = float(input("... 経度 = "))
                     elev = float(input("... 標高 = "))
-                    return SSOObserver(lat, lon, elev)
+                    return SSOObserver(attr, lat, lon, elev)
                 except (ValueError, EOFError, KeyboardInterrupt):
-                    return SSOObserver(0, 0, 0)
-            return SSOObserver(*args)
+                    return SSOObserver(attr, 0, 0, 0)
+            return SSOObserver(attr, *args)
 
-        return f"Unknown function: {func_name}"
+        logger.debug(f"Fundamental ephem call: arrt={attr}, args={args}")
+        return SSOEphem(attr, args, config=self.config)
 
     # ---  ---
 
