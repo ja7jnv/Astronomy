@@ -55,3 +55,30 @@ planet = getattr(ephem, planet_name)()  # getattrを使って動的にクラス�
 planet.compute('2026/1/1')  # 通常通り使用可能
 print(f"{planet.name} の赤経: {planet.ra}, 赤緯: {planet.dec}")
 
+# Class名を文字列などで動的に指定してクラスを生成・使用するには
+type()関数、globals()、またはgetattr()を使用します。
+特にtype(name, bases, attrs)は、クラス名、継承元、属性を引数としてクラスを即座に
+定義できるため、動的クラス生成に有用です。
+
+* コード例
+class_name = "DynamicClass"
+//# type(クラス名, 継承クラス(タプル), 属性・メソッドの辞書)
+MyClass = type(class_name, (object,), {
+    "greet": lambda self: "Hello from " + class_name
+})
+
+instance = MyClass()
+print(instance.greet())  # 出力: Hello from DynamicClass
+
+* globals()による文字列からのクラス取得
+定義済みのクラス名（文字列）に対応するクラスをグローバルスコープから取得します。
+python
+class TargetClass:
+    def method(self):
+        return "TargetClassのメソッド"
+
+class_name_str = "TargetClass"
+//# クラス名を文字列で指定して取得
+cls = globals()[class_name_str]
+instance = cls()
+print(instance.method())
