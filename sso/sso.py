@@ -55,11 +55,11 @@ class SSOShell(cmd.Cmd):
                 if isinstance(res, list):
                     for sub_res in res:
                         if not isinstance(sub_res, Token) and sub_res is not None:
-                            if self.interp.config.echo:
+                            if self.interp.config.env["Echo"]:
                                 print(sub_res)
                 else:
                     # 通常の出力
-                    if res is not None and self.interp.config.echo:
+                    if res is not None and self.interp.config.env["Echo"]:
                         print(res)
 
         except Exception as e:

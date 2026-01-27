@@ -1,6 +1,6 @@
 from lark.visitors import Interpreter
 from lark import Token
-from classes import SSOEphem, SSOObserver, SSOTime, SSOCalculator, SSOSystemConfig
+from classes import SSOObserver, SSOCalculator, SSOSystemConfig
 from datetime import datetime, timezone
 
 import logging # ログの設定
@@ -30,11 +30,11 @@ class SSOInterpreter(Interpreter):
         name = tree.children[0].value
         value = self.visit(tree.children[1])
 
-        # Tz, Echo は Configオブジェクトへの操作として処理
-        if name == "Tz":
-            return self.config.set_tz(value)
-        if name == "Echo":
-            return self.config.set_echo(value)
+        # 以下のbody操作はConfigオブジェクトへの操作として処理
+        if name in self.config.env.keys():
+            method_name = f"set_{name}"
+            method = getattr(self.config, method_name)
+            return method(value)
 
         # 通常オブジェクト
         if hasattr(value, 'name'):
@@ -103,9 +103,11 @@ class SSOInterpreter(Interpreter):
 
     def body_load(self, tree):
         name = tree.children[0].value
-        # 惑星名の予約語オブジェクト
-        if name in ["Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]:
-            return name
+
+        # 内部config変数
+        if name in self.config.env.keys():
+            return self.config.env[name]
+
         # 登録済みオブジェクト
         return self.body.get(name, name)
 
@@ -134,14 +136,14 @@ class SSOInterpreter(Interpreter):
 
         if attr == "Date":
             d_str = args[0] if args else None
-            d_str = d_str + "+" + f"{int(self.config.tz*100):04}"
+            d_str = d_str + "+" + f"{int(self.config.env['Tz']*100):04}"
             dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
             utc_dt = dt.astimezone(timezone.utc)
-            return SSOEphem(attr, utc_dt, config=self.config)
+            return SSOSystemConfig.SSOEphem(attr, utc_dt)
         
         if attr == "Now":
             # 引数なしで現在時刻を返す
-            return SSOEphem("now", config=self.config)
+            return SSOSystemConfig.SSOEphem("now", config=self.config)
 
         if (attr == "Observer") | (attr == "Mountain"):
             logger.debug(f"{attr} command: args={args}")
@@ -152,13 +154,18 @@ class SSOInterpreter(Interpreter):
                     lat = float(input("... 緯度 = "))
                     lon = float(input("... 経度 = "))
                     elev = float(input("... 標高 = "))
-                    return SSOObserver(attr, lat, lon, elev)
                 except (ValueError, EOFError, KeyboardInterrupt):
-                    return SSOObserver(attr, 0, 0, 0)
-            return SSOObserver(attr, *args)
+                    lat = 0
+                    lon = 0
+                    elev = 0
+                location = SSOObserver(attr, lat, lon, elev, config=self.config)
+            else:
+                location = SSOObserver(attr, *args, config=self.config)
+
+            return location.ephem_obs
 
         logger.debug(f"Fundamental ephem call: arrt={attr}, args={args}")
-        return SSOEphem(attr, args, config=self.config)
+        return SSOSystemConfig.SSOEphem(attr, *args, config=self.config)
 
     # ---  ---
 

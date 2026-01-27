@@ -16,37 +16,52 @@ logger =  logging.getLogger(__name__)
 # システム設定管理クラス（シングルトン的な役割）
 class SSOSystemConfig:
     def __init__(self):
-        self.tz = 9.0
-        self.echo = True
+        self.env = {"Tz" : 9.0,
+                    "Echo" : True,
+                    "Here" : ephem.Observer(),
+                    "Time" : ephem.now()
+        }
 
-    def set_tz(self, value):
-        self.tz = float(value)
-        return f"UTCからの時差: +{self.tz:g}"
+    def set_Tz(self, value):
+        self.env["Tz"] = float(value)
+        return f"UTCからの時差: +{self.env["Tz"]:g}"
 
-    def set_echo(self, value):
+    def set_Echo(self, value):
         # 0, Off, False などをオフとみなす柔軟な処理
         s_val = str(value).lower()
-        self.echo = s_val not in ["0", "off", "false"]
-        return f"Echo mode: {'On' if self.echo else 'Off'}"
+        self.env["Echo"] = s_val not in ["0", "off", "false"]
+        return f"Echo mode: {'On' if self.env["Echo"] else 'Off'}"
 
-class SSOTime:
-    def __init__(self, date_str=None, config=None):
-        self.config = config
-        tz_offset = config.tz if config else 9.0
-        
-        if date_str:
-            try:
-                self.date = ephem.Date(date_str)
-            except Exception:
-                self.date = ephem.now()
-        else:
-            self.date = ephem.now()
+    def set_Here(self, value):
+        self.env["Here"] = value
+        return f"Default ovserver: {self.env["Here"]}"
 
-    def __repr__(self):
-        return f"{self.date} (UTC)"
+    def set_Time(self, value):
+        self.env["Time"] = value
+        return f"Observation date_time: {self.env["Time"]}"
+
+    def SSOEphem(self, attr, value=None):
+        logger.debug(f"ephhem call: ephem.{attr}({value})")
+        # もし値が渡されなければ、現在の設定(self.env)から取得する
+        if value is None:
+            if attr == "Date":
+                value = self.env["Time"]
+            elif attr == "Observer":
+                value = self.env["Here"]
+
+        # 1. ephemオブジェクトを取得 (例: ephem.Mars)
+        target = getattr(ephem, attr)(value)
+
+        # 2. もし計算が必要なオブジェクト（天体など）なら、
+        #    現在の設定(self.env)にある観測地や時刻を自動適用する
+        if hasattr(target, 'compute'):
+            target.compute(self.env["Here"]) # ここで self.env を活用！
+
+        return target
+
 
 class SSOObserver:
-    def __init__(self, attr, lat=None, lon=None, elev=0):
+    def __init__(self, attr, lat=None, lon=None, elev=0, config=None):
         self.attr = attr
         self.lat, self.lon, self.elev = lat, lon, elev
         self.ephem_obs = ephem.Observer()
@@ -54,32 +69,10 @@ class SSOObserver:
             self.ephem_obs.lat, self.ephem_obs.lon = str(lat), str(lon)
             self.ephem_obs.elevation = elev
             # 初期状態は現在時刻(UTC)
-            self.ephem_obs.date = ephem.now()
-
-    def set_time(self, sso_time_body=None):
-        """
-        観測地点の時刻を設定する。
-        引数が None なら現在時刻(UTC)に同期する。
-        """
-        if sso_time_body:
-            # SSOTimeオブジェクトが持つUTC時刻をセット
-            self.ephem_obs.date = sso_time_body.date
-        else:
-            # 現在のUTC時刻に同期
-            self.ephem_obs.date = ephem.now()
+            self.ephem_obs.date = config.env["Time"]
 
     def __repr__(self):
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
-
-class SSOEphem:
-    def __init__(self, attr, value, config):
-        self.attr = attr
-        self.value = value
-        logger.debug(f"ephhem call: ephem.{attr}({value})")
-        return
-
-    def __repr__(self):
-        return f"(Ephem)"
 
 class SSOCalculator:
     @staticmethod
