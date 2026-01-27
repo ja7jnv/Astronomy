@@ -82,3 +82,36 @@ class_name_str = "TargetClass"
 cls = globals()[class_name_str]
 instance = cls()
 print(instance.method())
+
+# 動的関数コールの引数なしの場合 ephem.now(None) -> ephem.now()
+引数 value が None の場合に引数なしで呼び出すには、
+三項演算子 や 引数のアンパック（*args） を使うのがスマートです。
+
+1. 三項演算子を使う方法（読みやすさ重視）
+最もシンプルで直感的な書き方です。
+python
+func = getattr(ephem, attr)
+target = func(value) if value is not None else func()
+コードは注意してご使用ください。
+
+2. 引数アンパック（*args）を使う方法（短く書きたい場合）
+value が None でなければ要素1つのリスト、None なら空のリストを作成して展開します。
+python
+args = [value] if value is not None else []
+target = getattr(ephem, attr)(*args)
+コードは注意してご使用ください。
+
+この書き方は、後から引数が増える可能性がある場合に柔軟に対応できるのがメリットです。
+
+3. 関数を定義して共通化する
+頻繁にこの処理を行う場合は、ユーティリティ関数を作るとコードがスッキリします。
+python
+def call_dynamic(obj, attr_name, val):
+    func = getattr(obj, attr_name)
+    return func(val) if val is not None else func()
+
+target = call_dynamic(ephem, attr, value)
+コードは注意してご使用ください。
+
+PyEphem などのライブラリでは、引数の有無で挙動が変わるメソッドが多いため、
+上記のような条件分岐はよく使われるパターンです。

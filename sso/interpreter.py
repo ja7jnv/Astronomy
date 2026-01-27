@@ -108,6 +108,11 @@ class SSOInterpreter(Interpreter):
         if name in self.config.env.keys():
             return self.config.env[name]
 
+        # 今はNowだけだからよいが増えてきたら美しい方法で！！
+        if name == "Now":
+            # 引数なしで現在時刻を返す
+            return self.config.SSOEphem("now")
+
         # 登録済みオブジェクト
         return self.body.get(name, name)
 
@@ -139,11 +144,11 @@ class SSOInterpreter(Interpreter):
             d_str = d_str + "+" + f"{int(self.config.env['Tz']*100):04}"
             dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
             utc_dt = dt.astimezone(timezone.utc)
-            return SSOSystemConfig.SSOEphem(attr, utc_dt)
+            return self.config.SSOEphem(attr, utc_dt)
         
         if attr == "Now":
             # 引数なしで現在時刻を返す
-            return SSOSystemConfig.SSOEphem("now", config=self.config)
+            return self.config.SSOEphem("now")
 
         if (attr == "Observer") | (attr == "Mountain"):
             logger.debug(f"{attr} command: args={args}")
@@ -165,7 +170,7 @@ class SSOInterpreter(Interpreter):
             return location.ephem_obs
 
         logger.debug(f"Fundamental ephem call: arrt={attr}, args={args}")
-        return SSOSystemConfig.SSOEphem(attr, *args, config=self.config)
+        return self.config.SSOEphem(attr, *args, config=self.config)
 
     # ---  ---
 

@@ -41,7 +41,7 @@ class SSOSystemConfig:
         return f"Observation date_time: {self.env["Time"]}"
 
     def SSOEphem(self, attr, value=None):
-        logger.debug(f"ephhem call: ephem.{attr}({value})")
+        logger.debug(f"ephem call: ephem.{attr}({value})")
         # もし値が渡されなければ、現在の設定(self.env)から取得する
         if value is None:
             if attr == "Date":
@@ -49,8 +49,11 @@ class SSOSystemConfig:
             elif attr == "Observer":
                 value = self.env["Here"]
 
-        # 1. ephemオブジェクトを取得 (例: ephem.Mars)
-        target = getattr(ephem, attr)(value)
+        # valueがNoneなら []、あれば [value]
+        args = [value] if value is not None else []
+
+        # 1. ephemオブジェクトを取得
+        target = getattr(ephem, attr)(*args)
 
         # 2. もし計算が必要なオブジェクト（天体など）なら、
         #    現在の設定(self.env)にある観測地や時刻を自動適用する
