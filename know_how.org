@@ -115,3 +115,69 @@ target = call_dynamic(ephem, attr, value)
 
 PyEphem などのライブラリでは、引数の有無で挙動が変わるメソッドが多いため、
 上記のような条件分岐はよく使われるパターンです。
+
+# Larkで var.attr のようなdotアクセスを定義
+PythonのLarkライブラリを使ってvar.attr（変数.属性）のような
+ドット表記の属性アクセスを解析するには、
+Larkの文法定義（Grammar）で階層的なルールを定義し、
+Transformerを使用して解析ツリーを構造化されたPythonオブジェクトに変換します。
+
+以下に、var.attr または var.attr.subattr を解析する具体的な実装例を示します。
+
+* Lark文法とTransformerの実装
+python
+from lark import Lark, Transformer, v_args
+//# 1. 文法定義 (var.attr, var.attr.attr...)
+grammar = """
+    ?start: expression
+
+    ?expression: dot_access | CNAME
+
+    //# 変数名 . 属性名
+    dot_access: CNAME "." CNAME  -> get_attr
+              | dot_access "." CNAME -> get_attr
+
+    %import common.CNAME
+    %import common.WS
+    %ignore WS
+"""
+
+//# 2. Transformer定義（ツリーを解析してPythonオブジェクトにする）
+class AttributeTransformer(Transformer):
+    def get_attr(self, items):
+        //# itemsは[object, attribute_name]のリスト
+        obj, attr = items
+        return f"{obj}.{attr}" //# ここでは文字列として結合していますが、
+                               //# ASTノードを返すのが一般的です
+
+//# 3. パーサーの初期化
+parser = Lark(grammar, start='start', parser='lalr', transformer=AttributeTransformer())
+
+//# 4. 実行
+text = "user.address.zipcode"
+result = parser.parse(text)
+print(result) # 出力: user.address.zipcode
+
+* 実装のポイント
+** dot_access ルール:
+CNAME "." CNAME（例: var.attr）を定義し、
+さらに dot_access "." CNAME とすることで、
+a.b.c のような連続した属性アクセス（連鎖）に対応しています。
+** -> get_attr (エイリアス):
+ルール名にエイリアスを付けることで、
+Transformerで処理しやすくします。
+** Transformer:
+解析ツリーを下から上へ（bottom-up）処理し、
+解析されたトークンをPythonの文字列、リスト、あるいはカスタムオブジェクトに変換します。 
+
+* 応用：抽象構文木(AST)の作成
+通常は文字列を返すのではなく、Transformerで以下のようなオブジェクトを返します。
+python
+class AttributeTransformer(Transformer):
+    def get_attr(self, items):
+        return {"type": "attribute_access", "object": items[0], "attr": items[1]}
+
+この方法により、lark は var.attr を堅牢に解析し、
+Pythonコードの静的解析やカスタムスクリプト言語のインタープリタ作成に利用できます。
+
+https://share.google/aimode/j4OQ1jhXTPP1160r1

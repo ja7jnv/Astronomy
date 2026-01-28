@@ -52,15 +52,15 @@ class SSOSystemConfig:
         # valueがNoneなら []、あれば [value]
         args = [value] if value is not None else []
 
-        # 1. ephemオブジェクトを取得
         target = getattr(ephem, attr)(*args)
         logger.debug(f"ephem.{attr}({args}) -> {target}")
 
-        # 2. もし計算が必要なオブジェクト（天体など）なら、
-        #    現在の設定(self.env)にある観測地や時刻を自動適用する
-        if hasattr(target, 'compute'):
-            logger.debug(f"target:{target}.compute({self.env['Here']}")
-            target.compute(self.env["Here"]) # ここで self.env を活用！
+        # もし計算が必要なオブジェクト（天体など）なら、
+        # 現在の設定(self.env)にある観測地や時刻を自動適用する。
+        # しかし、挙動がおかしいので、一旦無効。
+        #if hasattr(target, 'compute'):
+        #    logger.debug(f"target:{target}.compute({self.env['Here']}")
+        #    target.compute(self.env["Here"])
 
         return target
 

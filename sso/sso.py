@@ -14,7 +14,7 @@ logger =  logging.getLogger(__name__)
 
 class SSOShell(cmd.Cmd):
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
-    prompt = ">>> "
+    prompt = "sso> "
 
     def __init__(self):
         super().__init__()
