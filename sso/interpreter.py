@@ -37,8 +37,9 @@ class SSOInterpreter(Interpreter):
             return method(value)
 
         # 通常オブジェクト
-        if hasattr(value, 'name'):
-            value.name = name
+        # if hasattr(value, 'name'):
+        #    value.name = name
+        # これをやると「Error: attribute 'name' of 'ephem.Body' objects is not writable」になる！！
 
         self.body[name] = value
         return f"{name}: {value}"
@@ -141,9 +142,7 @@ class SSOInterpreter(Interpreter):
 
         if attr == "Date":
             d_str = args[0] if args else None
-            d_str = d_str + "+" + f"{int(self.config.env['Tz']*100):04}"
-            dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
-            utc_dt = dt.astimezone(timezone.utc)
+            utc_dt = self.config.toUTC(d_str)
             return self.config.SSOEphem(attr, utc_dt)
         
         if attr == "Now":

@@ -4,7 +4,7 @@ JTSや他の地方時は、その変換メソッド以外では一切考慮し�
 """
 import ephem
 import math
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 import logging # ログの設定
 logging.basicConfig(
@@ -40,7 +40,7 @@ class SSOSystemConfig:
         self.env["Time"] = value
         return f"Observation date_time: {self.env["Time"]}"
 
-    def SSOEphem(self, attr, value=None):
+    def SSOEphem(self, attr, value=None, config=None):
         logger.debug(f"ephem call: ephem.{attr}({value})")
         # もし値が渡されなければ、現在の設定(self.env)から取得する
         if value is None:
@@ -54,13 +54,34 @@ class SSOSystemConfig:
 
         # 1. ephemオブジェクトを取得
         target = getattr(ephem, attr)(*args)
+        logger.debug(f"ephem.{attr}({args}) -> {target}")
 
         # 2. もし計算が必要なオブジェクト（天体など）なら、
         #    現在の設定(self.env)にある観測地や時刻を自動適用する
         if hasattr(target, 'compute'):
+            logger.debug(f"target:{target}.compute({self.env['Here']}")
             target.compute(self.env["Here"]) # ここで self.env を活用！
 
         return target
+
+    def toUTC(self, tz_date):
+        d_str = tz_date + "+" + f"{int(self.env['Tz']*100):04}"
+        dt =  datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
+        return dt.astimezone(timezone.utc)
+
+    def fromUTC(self, utc_str):
+        tz_offset = self.env['Tz']
+        dt_utc = datetime.strptime(str(utc_str), "%Y/%m/%d %H:%M:%S")
+        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+        tz = timezone(timedelta(hours=tz_offset))
+        dt_local = dt_utc.astimezone(tz)
+        date_part = dt_local.strftime("%Y/%-m/%-d")
+        time_part = dt_local.strftime("%-H:%M:%S")
+
+        sign = "+" if tz_offset >= 0 else ""
+        offset_str = f"({sign}{tz_offset})"
+
+        return f"{date_part} {time_part} {offset_str}"
 
 
 class SSOObserver:

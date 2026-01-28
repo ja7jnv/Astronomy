@@ -3,6 +3,7 @@ import cmd
 import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
 from interpreter import SSOInterpreter
+from classes import SSOSystemConfig
 
 import logging # ログの設定
 logging.basicConfig(
@@ -37,7 +38,7 @@ class SSOShell(cmd.Cmd):
             # 慣れるまで、解析木を表示する
             logger.debug(tree.pretty())
 
-            # 2. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
+            # e. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
             results = self.interp.visit(tree)
             logger.info(results)
 
@@ -60,6 +61,12 @@ class SSOShell(cmd.Cmd):
                 else:
                     # 通常の出力
                     if res is not None and self.interp.config.env["Echo"]:
+                        logger.debug(f"return type: {type(res)}")
+                        # type() が <class 'ephem.Date'> なら Tz を加算する
+                        if f"{type(res)}" == "<class 'ephem.Date'>":
+                            logger.debug(f"Date change: UTC -> UTC+Tz")
+                            print(f"UTC: {res}")
+                            print(f"UTC+Tz: {self.interp.config.fromUTC(res)}")
                         print(res)
 
         except Exception as e:
