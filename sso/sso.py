@@ -24,6 +24,7 @@ class SSOShell(cmd.Cmd):
                 grammar = f.read()
             self.parser = Lark(grammar, parser='lalr')
             self.interp = SSOInterpreter()
+
         except FileNotFoundError:
             print("Error: 'sso.lark' file not found.")
             sys.exit(1)
@@ -32,6 +33,11 @@ class SSOShell(cmd.Cmd):
         if not line.strip():
             return
         try:
+            if self.interp.config.env["Log"] == True:
+                logging.disable(logging.NOTSET)
+            elif self.interp.config.env["Log"] == False:
+                logging.disable(logging.CRITICAL)
+
             # 1. パースを実行（末尾に改行を付けて文末を認識させる）
             tree = self.parser.parse(line + "\n")
 

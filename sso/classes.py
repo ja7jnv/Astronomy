@@ -18,6 +18,7 @@ class SSOSystemConfig:
     def __init__(self):
         self.env = {"Tz" : 9.0,
                     "Echo" : True,
+                    "Log"  : False,
                     "Here" : ephem.Observer(),
                     "Time" : ephem.now()
         }
@@ -27,10 +28,20 @@ class SSOSystemConfig:
         return f"UTCからの時差: +{self.env["Tz"]:g}"
 
     def set_Echo(self, value):
-        # 0, Off, False などをオフとみなす柔軟な処理
         s_val = str(value).lower()
-        self.env["Echo"] = s_val not in ["0", "off", "false"]
-        return f"Echo mode: {'On' if self.env["Echo"] else 'Off'}"
+        if s_val in ["0", "off", "false"]:
+            self.env["Echo"] = False
+        elif s_val in ["1", "on", "true"]:
+            self.env["Echo"] = True
+        return f"Echo mode: {self.env.get('Echo')}"
+
+    def set_Log(self, value):
+        s_val = str(value).lower()
+        if s_val in ["0", "off", "false"]:
+            self.env["Log"] = False
+        elif s_val in ["1", "on", "true"]:
+            self.env["Log"] = True
+        return f"Log mode: {self.env.get('Log')}"
 
     def set_Here(self, value):
         self.env["Here"] = value
