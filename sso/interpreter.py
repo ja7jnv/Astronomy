@@ -2,6 +2,7 @@ from lark.visitors import Interpreter
 from lark import Token
 from classes import SSOObserver, SSOCalculator, SSOSystemConfig
 from datetime import datetime, timezone
+import ephem
 
 import logging # ログの設定
 logging.basicConfig(
@@ -36,12 +37,12 @@ class SSOInterpreter(Interpreter):
             method = getattr(self.config, method_name)
             return method(value)
 
-        # 通常オブジェクト
-        # if hasattr(value, 'name'):
-        #    value.name = name
-        # これをやると「Error: attribute 'name' of 'ephem.Body' objects is not writable」になる！！
-
         self.body[name] = value
+
+        # Observer もしくは天体ならフォーマット
+        logger.debug(f"type of value: {type(value)}")
+        if isinstance(value, ephem.Observer) | isinstance(value, ephem.Body):
+            value = self.config.reformat(value)
         return f"{name}: {value}"
 
     # --- 演算系 ---
@@ -60,7 +61,7 @@ class SSOInterpreter(Interpreter):
         if isinstance(obs, SSOObserver):
             # 1. ユーザーが明示的に時刻変数を設定しているかチェック
             # DateTime または Time という変数があればそれを使う
-            target_time = self.variables.get("DateTime") or self.variables.get("Time")
+            target_time = self.body.get("DateTime") or self.body.get("Time")
             obs.set_time(target_time)
 
         # 1. Observer -> Mode (Rise, Set)
@@ -102,23 +103,47 @@ class SSOInterpreter(Interpreter):
         name = tree.children[0].value
         return self.variables.get(name, 0.0)
 
+    def var_name(self, tree):
+        loggere.degug(tree)
+        name = tree.children[0].value
+        return f"{name}"
+
+    # --- var.attr 呼び出し ---
+    def dot_access(self, tree):
+        name = tree.children[0].value
+        attr = tree.children[1].value
+
+        var = self.variables.get(name, 0.0)
+        value = getattr(var, attr, 0)
+        logger.debug(f"{name}.{attr} = {value}")
+        return value
+
+
     def body_load(self, tree):
         name = tree.children[0].value
 
         # 内部config変数
         if name in self.config.env.keys():
-            return self.config.env[name]
+            value =  self.config.env[name]
 
         # 今はNowだけだからよいが増えてきたら美しい方法で！！
-        if name == "Now":
+        elif name == "Now":
             # 引数なしで現在時刻を返す
-            return self.config.SSOEphem("now")
+            value =  self.config.SSOEphem("now")
+
+        # 未登録オブジェクト
+        elif name not in self.body.keys():
+            value = self.config.SSOEphem(name)
+            self.body[name] = value
 
         # 登録済みオブジェクト
-        return self.body.get(name, name)
+        else:
+            value =  self.body.get(name, name)
+
+        return value
+ 
 
     # --- 関数呼び出し ---
-
     def funccall(self, tree):
         # funccall: BODY_NAME | VAR_NAME "(" [arglist] ")"
         # 基本的にephem.funccall(...) にする。

@@ -83,6 +83,20 @@ class SSOSystemConfig:
 
         return f"{date_part} {time_part} {offset_str}"
 
+    def reformat(self, body):
+        logger.debug(f"reformat: {body}")
+        if isinstance(body, ephem.Observer):
+            value = f"\n 観測日時：{self.fromUTC(body.date)}"
+            value = value + f"\n 緯度：{body.lat}"
+            value = value + f"\n 経度：{body.lon}"
+            value = value + f"\n 標高：{body.elevation}"
+        elif isinstance(body, ephem.Moon):
+            value = f"\n 黄道座標系における位置"
+            value = value + f"\n 日心緯度：{body.hlat}"
+            value = value + f"\n 日心経度：{body.hlon}"
+
+        return value
+
 
 class SSOObserver:
     def __init__(self, attr, lat=None, lon=None, elev=0, config=None):

@@ -16,6 +16,10 @@ assignment: VAR_NAME "=" expr  -> assign_var
      | BODY_NAME         -> body_load
      | funccall
      | "(" expr ")"
+	 | dot_access
+
+dot_access: VAR_NAME "." VAR_NAME
+          | dot_access "." VAR_NAME
 
 funccall: (BODY_NAME | VAR_NAME) "(" [arglist] ")"
 arglist: expr ("," expr)*

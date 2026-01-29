@@ -116,6 +116,7 @@ target = call_dynamic(ephem, attr, value)
 PyEphem などのライブラリでは、引数の有無で挙動が変わるメソッドが多いため、
 上記のような条件分岐はよく使われるパターンです。
 
+
 # Larkで var.attr のようなdotアクセスを定義
 PythonのLarkライブラリを使ってvar.attr（変数.属性）のような
 ドット表記の属性アクセスを解析するには、
