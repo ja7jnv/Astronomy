@@ -13,12 +13,38 @@ format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger =  logging.getLogger(__name__)
 
+def boolean_setter(key_name):
+    """
+    1/0, on/off, true/false, yes/no を Yes/No に変換するデコレータ
+    """
+    def decorator(func):
+        def wrapper(self, value):
+            # 前処理：共通の変換ロジック
+            s_val = str(value).lower()
+            if s_val in ["0", "off", "false", "no"]:
+                final_val = "No"
+            elif s_val in ["1", "on", "true", "yes"]:
+                final_val = "Yes"
+            else:
+                # 不明な値が来た場合の処理（必要に応じて）
+                final_val = value
+
+            # 辞書の更新
+            self.env[key_name] = final_val
+
+            # 元の関数（リターンメッセージの生成など）を実行
+            return f"{key_name} mode: {self.env.get(key_name)}"
+        return wrapper
+    return decorator
+
+##
 # システム設定管理クラス（シングルトン的な役割）
+#
 class SSOSystemConfig:
     def __init__(self):
         self.env = {"Tz" : 9.0,
-                    "Echo" : True,
-                    "Log"  : False,
+                    "Echo" : "Yes",
+                    "Log"  : "No",
                     "Here" : ephem.Observer(),
                     "Time" : ephem.now()
         }
@@ -27,21 +53,13 @@ class SSOSystemConfig:
         self.env["Tz"] = float(value)
         return f"UTCからの時差: +{self.env["Tz"]:g}"
 
+    @boolean_setter("Echo")
     def set_Echo(self, value):
-        s_val = str(value).lower()
-        if s_val in ["0", "off", "false"]:
-            self.env["Echo"] = False
-        elif s_val in ["1", "on", "true"]:
-            self.env["Echo"] = True
-        return f"Echo mode: {self.env.get('Echo')}"
+        pass
 
+    @boolean_setter("Log")
     def set_Log(self, value):
-        s_val = str(value).lower()
-        if s_val in ["0", "off", "false"]:
-            self.env["Log"] = False
-        elif s_val in ["1", "on", "true"]:
-            self.env["Log"] = True
-        return f"Log mode: {self.env.get('Log')}"
+        pass
 
     def set_Here(self, value):
         self.env["Here"] = value
@@ -123,26 +141,23 @@ class SSOObserver:
     def __repr__(self):
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
+
 class SSOCalculator:
-    @staticmethod
+ 
+    @classmethod
     def observe(observer, target_name, config, mode="Now", context=None):
-        """
-        config: 時差表示のために必要
-        """
-        obs = observer.ephem_obs
         
         # 天体取得 (Moon固定ではなく、ephemにあるものを動的に取得)
         try:
             body = getattr(ephem, target_name)()
+
         except AttributeError:
             return f"Error: Unknown body '{target_name}'"
 
-        body.compute(obs)
+        body.compute(observer)
         
-        def to_deg(rad): return math.degrees(rad)
-        
-        # 結果表示用のTimeオブジェクト作成ヘルパー
-        def make_time(edate): return SSOTime(None, config=config) # 中身を入れ替える
+        def to_deg(rad):
+            return math.degrees(rad)
         
         # 実際には SSOTime(edate, config) のように初期化したいが
         # SSOTimeの実装に合わせて日付をセットする

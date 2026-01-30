@@ -33,10 +33,15 @@ class SSOShell(cmd.Cmd):
         if not line.strip():
             return
         try:
-            if self.interp.config.env["Log"] == True:
+            log_mode = self.interp.config.env["Log"].strip('"')
+
+            if log_mode == "Yes":
                 logging.disable(logging.NOTSET)
-            elif self.interp.config.env["Log"] == False:
+            elif log_mode == "No":
                 logging.disable(logging.CRITICAL)
+            else:
+                level = getattr(logging, log_mode, logging.CRITICAL)
+                logging.disable(level)
 
             # 1. パースを実行（末尾に改行を付けて文末を認識させる）
             tree = self.parser.parse(line + "\n")
@@ -62,7 +67,7 @@ class SSOShell(cmd.Cmd):
                 if isinstance(res, list):
                     for sub_res in res:
                         if not isinstance(sub_res, Token) and sub_res is not None:
-                            if self.interp.config.env["Echo"]:
+                            if self.interp.config.env["Echo"] == "Yes":
                                 print(sub_res)
                 else:
                     # 通常の出力
@@ -71,7 +76,6 @@ class SSOShell(cmd.Cmd):
                         # type() が <class 'ephem.Date'> なら Tz を加算する
                         if f"{type(res)}" == "<class 'ephem.Date'>":
                             logger.debug(f"Date change: UTC -> UTC+Tz")
-                            print(f"UTC: {res}")
                             print(f"UTC+Tz: {self.interp.config.fromUTC(res)}")
                         print(res)
 

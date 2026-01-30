@@ -2,7 +2,9 @@ from lark.visitors import Interpreter
 from lark import Token
 from classes import SSOObserver, SSOCalculator, SSOSystemConfig
 from datetime import datetime, timezone
-import ephem
+import numpy as np
+import configparser
+import ephem    # 型を参照するためにインポート（実際の計算はSSOSystemConfig経由で行う）
 
 import logging # ログの設定
 logging.basicConfig(
@@ -15,7 +17,19 @@ class SSOInterpreter(Interpreter):
     def __init__(self):
         self.variables = {}
         self.body = {}
-        self.config = SSOSystemConfig() # Tz, Echoなどを管理
+
+        self.config = SSOSystemConfig() # 環境変数 etc.
+        self.ini = configparser.ConfigParser()
+        self.ini.read('config.ini', encoding='utf-8')
+        lat = self.ini['Here']['lat']
+        lon = self.ini['Here']['lon']
+        elev = self.ini['Here']['elev']
+        setattr(self.config.env['Here'], "lat", lat)
+        setattr(self.config.env['Here'], "lon", lon)
+        setattr(self.config.env['Here'], "elevation", float(elev))
+        self.config.env['Tz']   = float(self.ini['ENV']['Tz'])
+        self.config.env['Log']  = self.ini['ENV']['Log'].strip('"')
+        self.config.env['Echo'] = self.ini['ENV']['Echo'].strip('"')
 
     # --- 代入系 ---
     def assign_var(self, tree):
@@ -58,28 +72,31 @@ class SSOInterpreter(Interpreter):
         target = right
         logger.debug(f"\nobs:{obs}\nmode:{mode}\ntarget:{target}")
 
-        if isinstance(obs, SSOObserver):
-            # 1. ユーザーが明示的に時刻変数を設定しているかチェック
-            # DateTime または Time という変数があればそれを使う
-            target_time = self.body.get("DateTime") or self.body.get("Time")
-            obs.set_time(target_time)
+        if isinstance(obs, ephem.Observer):
+            # ユーザーが明示的に時刻変数を設定しているかチェック
+            # Time という変数があればそれを使う
+            logger.debug(f"Observer date set to: {obs.date}")
+            obs.date = str(self.config.env.get("Time"))
 
-        # 1. Observer -> Mode (Rise, Set)
+        # 1. Observer -> Target (Body)
+        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body) and mode == "Now":
+            logger.debug(f"Observer -> Target (Body)")
+            target.compute(obs)
+            alt = np.rad2deg(target.alt)
+            az = np.rad2deg(target.az)
+            return alt, az
+
+        # 2. Observer -> Mode (Rise, Set)
         if isinstance(left, SSOObserver) and right in ["Rise", "Set"]:
             logger.debug(f"pattern 1 Observer -> Mode (Rise, Set)")
             return (left, right)
 
-        # 2. (Observer, Mode) -> Target (Moon)
+        # 3. (Observer, Mode) -> Target (Moon)
         if isinstance(left, tuple) and isinstance(right, str):
             obs, mode = left
             logger.debug(f"pattern 2 (Observer, Mode) -> Target (Moon)")
             return SSOCalculator.observe(obs, right, self.config, mode=mode)
         
-        # 3. Observer -> Target (Moon)
-        if isinstance(left, SSOObserver) and isinstance(right, str):
-            logger.debug(f"pattern 3 Observer -> Target (Moon)")
-            return SSOCalculator.observe(left, right, self.config)
-
         return f"Error: Invalid arrow operation {left} -> {right}"
 
     ###
