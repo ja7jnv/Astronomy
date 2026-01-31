@@ -108,24 +108,65 @@ class SSOSystemConfig:
         time_part = dt_local.strftime("%-H:%M:%S")
 
         sign = "+" if tz_offset >= 0 else ""
-        offset_str = f"({sign}{tz_offset})"
+        offset_str = f"[{sign}{tz_offset}]"
 
         return f"{date_part} {time_part} {offset_str}"
 
-    def reformat(self, body):
-        logger.debug(f"reformat: {body}")
-        if isinstance(body, ephem.Observer):
-            value = f"\n 観測日時：{self.fromUTC(body.date)}"
-            value = value + f"\n 緯度：{body.lat}"
-            value = value + f"\n 経度：{body.lon}"
-            value = value + f"\n 標高：{body.elevation}"
-        elif isinstance(body, ephem.Moon):
-            value = f"\n 黄道座標系における位置"
-            value = value + f"\n 日心緯度：{body.hlat}"
-            value = value + f"\n 日心経度：{body.hlon}"
+    def reformat(self, body, target=None):
+        logger.debug(f"reformat:\nbody:{body}\ntarget:{target}")
+        match body:
+            case ephem.Observer():
+                match target:
+                    case ephem.Moon():
+                        value = self.reformat_moon(body, target)
+                    case None:
+                        value = self.reformat_observer(body)
+                    case _:
+                        value = self.reformat_planet(body, target)
 
+            case ephem.Moon():
+                value = self.reformat_moon(self.config.env[Here], obs)
+
+            case    _:
+                value = None
+                
         return value
 
+    def reformat_observer(self, body):
+        value = f"\n 観測日時：{self.fromUTC(body.date)}"
+        value = value + f"\n 緯度：{body.lat}"
+        value = value + f"\n 経度：{body.lon}"
+        value = value + f"\n 標高：{body.elevation}"
+        return value
+
+    def reformat_moon(self, obs, moon):
+        logging.debug(f"reformat_moon:\nobs:{obs}\nmoon:{moon}")
+
+        # 観測地点の時刻に変換
+        rise_time = obs.next_rising(moon)
+        local_rise_time = self.fromUTC(rise_time.datetime())
+
+        set_time = obs.next_setting(moon)
+        local_set_time = self.fromUTC(set_time.datetime())
+
+        # 月の出の方角（方位角）を取得
+        obs.date = rise_time # 観測日を月の出時刻に設定
+        moon.compute(obs)
+        rise_azimuth = math.degrees(moon.az) # 方位角（度）
+
+        # 月のの方角（方位角）を取得
+        obs.date = set_time # 観測日を月の出時刻に設定
+        moon.compute(obs)
+        set_azimuth = math.degrees(moon.az) # 方位角（度）
+
+        value = f"月の出入り：\n"
+        value = value + f"観測日時：{self.fromUTC(obs.date)}\n"
+        value = value + f"月の出：{local_rise_time}  方位：{rise_azimuth}°\n"
+        value = value + f"月の入：{local_set_time}  方位：{set_azimuth}°\n"
+        return value
+
+    def reformat_planet(self, obs, planet):
+        pass
 
 class SSOObserver:
     def __init__(self, attr, lat=None, lon=None, elev=0, config=None):

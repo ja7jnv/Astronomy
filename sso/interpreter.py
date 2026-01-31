@@ -38,6 +38,7 @@ class SSOInterpreter(Interpreter):
         value = self.visit(tree.children[1]) # 右辺を評価
         
         self.variables[name] = value
+        value = self.config.reformat(value)
         return f"{name}: {value}"
 
     def assign_body(self, tree):
@@ -54,9 +55,7 @@ class SSOInterpreter(Interpreter):
         self.body[name] = value
 
         # Observer もしくは天体ならフォーマット
-        logger.debug(f"type of value: {type(value)}")
-        if isinstance(value, ephem.Observer) | isinstance(value, ephem.Body):
-            value = self.config.reformat(value)
+        value = self.config.reformat(value)
         return f"{name}: {value}"
 
     # --- 演算系 ---
@@ -84,7 +83,8 @@ class SSOInterpreter(Interpreter):
             target.compute(obs)
             alt = np.rad2deg(target.alt)
             az = np.rad2deg(target.az)
-            return alt, az
+            value = self.config.reformat(obs, target)
+            return value
 
         # 2. Observer -> Mode (Rise, Set)
         if isinstance(left, SSOObserver) and right in ["Rise", "Set"]:
