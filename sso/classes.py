@@ -98,9 +98,16 @@ class SSOSystemConfig:
         dt =  datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
         return dt.astimezone(timezone.utc)
 
-    def fromUTC(self, utc_str):
+    def fromUTC(self, utc_val):
         tz_offset = self.env['Tz']
-        dt_utc = datetime.strptime(str(utc_str), "%Y/%m/%d %H:%M:%S")
+
+        # 引数が既に datetime オブジェクトならそのまま使う
+        if isinstance(utc_val, datetime):
+            dt_utc = utc_val
+        else:
+            # 文字列の場合は、ハイフン区切り等にも対応できるよう変換
+            dt_utc = datetime.strptime(str(utc_val), "%Y/%m/%d %H:%M:%S")
+
         dt_utc = dt_utc.replace(tzinfo=timezone.utc)
         tz = timezone(timedelta(hours=tz_offset))
         dt_local = dt_utc.astimezone(tz)
@@ -159,10 +166,14 @@ class SSOSystemConfig:
         moon.compute(obs)
         set_azimuth = math.degrees(moon.az) # 方位角（度）
 
+        # 月齢は現在時刻から前回新月を引き算
+        age = obs.date - ephem.previous_new_moon(obs.date)
+
         value = f"月の出入り：\n"
         value = value + f"観測日時：{self.fromUTC(obs.date)}\n"
         value = value + f"月の出：{local_rise_time}  方位：{rise_azimuth}°\n"
         value = value + f"月の入：{local_set_time}  方位：{set_azimuth}°\n"
+        value = value + f"月齢：{age}\n"
         return value
 
     def reformat_planet(self, obs, planet):

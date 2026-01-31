@@ -35,10 +35,10 @@ class SSOInterpreter(Interpreter):
     def assign_var(self, tree):
         # assignment: VAR_NAME "=" expr
         name = tree.children[0].value # Tokenから文字列取得
-        value = self.visit(tree.children[1]) # 右辺を評価
+        expr = self.visit(tree.children[1]) # 右辺を評価
         
-        self.variables[name] = value
-        value = self.config.reformat(value)
+        self.variables[name] = expr
+        value = self.config.reformat(expr) or expr
         return f"{name}: {value}"
 
     def assign_body(self, tree):
