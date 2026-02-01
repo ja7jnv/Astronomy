@@ -119,7 +119,7 @@ class SSOSystemConfig:
 
         return f"{date_part:<10} {time_part:<8} {offset_str}"
 
-    def reformat(self, body, target=None):
+    def reformat(self, body, target=None, config=None):
         logger.debug(f"reformat:\nbody:{body}\ntarget:{target}")
         match body:
             case ephem.Observer():
@@ -132,7 +132,7 @@ class SSOSystemConfig:
                         value = self.reformat_planet(body, target)
 
             case ephem.Moon():
-                value = self.reformat_moon(self.config.env[Here], obs)
+                value = self.reformat_moon(config.env["Here"], body)
 
             case    _:
                 value = None
@@ -149,14 +149,17 @@ class SSOSystemConfig:
     def reformat_moon(self, obs, moon):
         logging.debug(f"reformat_moon:\nobs:{obs}\nmoon:{moon}")
 
-        # 観測地点の時刻に変換
+        # 観測日
+        obs_time = obs.date
+        local_obs_time = self.fromUTC(obs_time)
+
+        # 月の出／入時刻
         rise_time = obs.next_rising(moon)
         local_rise_time = self.fromUTC(rise_time.datetime())
-
         set_time = obs.next_setting(moon)
         local_set_time = self.fromUTC(set_time.datetime())
 
-        # 月の出の方角（方位角）を取得
+        # 月の出の方角
         obs.date = rise_time # 観測日を月の出時刻に設定
         moon.compute(obs)
         rise_azimuth = math.degrees(moon.az) # 方位角（度）
@@ -170,7 +173,7 @@ class SSOSystemConfig:
         moon.compute(obs)
         zenith_alt = math.degrees(moon.alt)
 
-        # 月の入の方角（方位角）を取得
+        # 月の入の方角
         obs.date = set_time # 観測日を月の出時刻に設定
         moon.compute(obs)
         set_azimuth = math.degrees(moon.az) # 方位角（度）
@@ -179,7 +182,7 @@ class SSOSystemConfig:
         age = obs.date - ephem.previous_new_moon(obs.date)
 
         value = f"月の出入り：\n"
-        value = value + f"観測日：{self.fromUTC(obs.date)}\n"
+        value = value + f"観測日：{local_obs_time}\n"
         value = value + f"月の出：{local_rise_time:<26}  方位：{rise_azimuth:6.2f}°\n"
         value = value + f"南中  ：{local_zenith:<26}  高度：{zenith_alt:6.2f}°\n"
         value = value + f"月の入：{local_set_time:<26}  方位：{set_azimuth:6.2f}°\n"

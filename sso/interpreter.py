@@ -38,24 +38,24 @@ class SSOInterpreter(Interpreter):
         expr = self.visit(tree.children[1]) # 右辺を評価
         
         self.variables[name] = expr
-        value = self.config.reformat(expr) or expr
+        value = self.config.reformat(expr, config=self.config) or expr
         return f"{name}: {value}"
 
     def assign_body(self, tree):
         # assignment: BODY_NAME "=" expr
         name = tree.children[0].value
-        value = self.visit(tree.children[1])
+        expr = self.visit(tree.children[1])
 
         # 以下のbody操作はConfigオブジェクトへの操作として処理
         if name in self.config.env.keys():
             method_name = f"set_{name}"
             method = getattr(self.config, method_name)
-            return method(value)
+            return method(expr)
 
-        self.body[name] = value
+        self.body[name] = expr
 
         # Observer もしくは天体ならフォーマット
-        value = self.config.reformat(value)
+        value = self.config.reformat(expr, config=self.config) or expr
         return f"{name}: {value}"
 
     # --- 演算系 ---
