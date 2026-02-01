@@ -111,13 +111,13 @@ class SSOSystemConfig:
         dt_utc = dt_utc.replace(tzinfo=timezone.utc)
         tz = timezone(timedelta(hours=tz_offset))
         dt_local = dt_utc.astimezone(tz)
-        date_part = dt_local.strftime("%Y/%-m/%-d")
-        time_part = dt_local.strftime("%-H:%M:%S")
+        date_part = dt_local.strftime("%Y/%m/%d")
+        time_part = dt_local.strftime("%H:%M:%S")
 
         sign = "+" if tz_offset >= 0 else ""
         offset_str = f"[{sign}{tz_offset}]"
 
-        return f"{date_part} {time_part} {offset_str}"
+        return f"{date_part:<10} {time_part:<8} {offset_str}"
 
     def reformat(self, body, target=None):
         logger.debug(f"reformat:\nbody:{body}\ntarget:{target}")
@@ -161,7 +161,16 @@ class SSOSystemConfig:
         moon.compute(obs)
         rise_azimuth = math.degrees(moon.az) # 方位角（度）
 
-        # 月のの方角（方位角）を取得
+        # 南中時刻
+        zenith = obs.next_transit(moon)
+        local_zenith = self.fromUTC(zenith.datetime())
+
+        # 南中高度
+        obs.date = zenith
+        moon.compute(obs)
+        zenith_alt = math.degrees(moon.alt)
+
+        # 月の入の方角（方位角）を取得
         obs.date = set_time # 観測日を月の出時刻に設定
         moon.compute(obs)
         set_azimuth = math.degrees(moon.az) # 方位角（度）
@@ -170,10 +179,11 @@ class SSOSystemConfig:
         age = obs.date - ephem.previous_new_moon(obs.date)
 
         value = f"月の出入り：\n"
-        value = value + f"観測日時：{self.fromUTC(obs.date)}\n"
-        value = value + f"月の出：{local_rise_time}  方位：{rise_azimuth}°\n"
-        value = value + f"月の入：{local_set_time}  方位：{set_azimuth}°\n"
-        value = value + f"月齢：{age}\n"
+        value = value + f"観測日：{self.fromUTC(obs.date)}\n"
+        value = value + f"月の出：{local_rise_time:<26}  方位：{rise_azimuth:6.2f}°\n"
+        value = value + f"南中  ：{local_zenith:<26}  高度：{zenith_alt:6.2f}°\n"
+        value = value + f"月の入：{local_set_time:<26}  方位：{set_azimuth:6.2f}°\n"
+        value = value + f"月齢  ：{age:.1f}\n"
         return value
 
     def reformat_planet(self, obs, planet):
