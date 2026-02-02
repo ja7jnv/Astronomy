@@ -125,14 +125,14 @@ class SSOSystemConfig:
             case ephem.Observer():
                 match target:
                     case ephem.Moon():
-                        value = self.reformat_moon(body, target)
+                        value = self.reformat_moon(body, target, config)
                     case None:
                         value = self.reformat_observer(body)
                     case _:
                         value = self.reformat_planet(body, target)
 
             case ephem.Moon():
-                value = self.reformat_moon(config.env["Here"], body)
+                value = self.reformat_moon(config.env["Here"], body, config)
 
             case    _:
                 value = None
@@ -140,57 +140,139 @@ class SSOSystemConfig:
         return value
 
     def reformat_observer(self, body):
-        value = f"\n 観測日時：{self.fromUTC(body.date)}"
-        value = value + f"\n 緯度：{body.lat}"
-        value = value + f"\n 経度：{body.lon}"
-        value = value + f"\n 標高：{body.elevation}"
+        value = f"\n観測日時：{self.fromUTC(body.date)}"
+        value = value + f"\n緯度：{body.lat}"
+        value = value + f"\n経度：{body.lon}"
+        value = value + f"\n標高：{body.elevation}"
         return value
 
-    def reformat_moon(self, obs, moon):
+    def reformat_moon(self, obs, moon, config):
         logging.debug(f"reformat_moon:\nobs:{obs}\nmoon:{moon}")
+        value = ""
 
         # 観測日
         obs_time = obs.date
         local_obs_time = self.fromUTC(obs_time)
+        value = value + f"観測日時：{local_obs_time}\n"
 
-        # 月の出／入時刻
-        rise_time = obs.next_rising(moon)
-        local_rise_time = self.fromUTC(rise_time.datetime())
-        set_time = obs.next_setting(moon)
-        local_set_time = self.fromUTC(set_time.datetime())
+        value = value + "\n"
 
-        # 月の出の方角
-        obs.date = rise_time # 観測日を月の出時刻に設定
+        # 観測時刻の月の位置計算
         moon.compute(obs)
-        rise_azimuth = math.degrees(moon.az) # 方位角（度）
+        value = value + f"月の高度・方位\n"
+        value = value + f"輝面比: {moon.phase:.2f}%\n"
+        value = value + f"月齢  : {obs.date - ephem.previous_new_moon(obs.date):.2f}\n"
 
-        # 南中時刻
-        zenith = obs.next_transit(moon)
-        local_zenith = self.fromUTC(zenith.datetime())
+        # 月の高度と方位
+        alt = math.degrees(moon.alt)
+        az  = math.degrees(moon.az)
+        value = value + f"高度  ：{alt:.2f}°  方位：{az:.2f}°\n"
 
-        # 南中高度
-        obs.date = zenith
+        diameter = math.degrees(moon.size) * 60.0
+        value = value + f"視直径：{diameter} arcmin\n"
+
+        distance = moon.earth_distance
+        value = value + f"距離　：{distance} AU\n"
+        value = value + "\n"
+        # -----------------------------------------------
+
+        # 月の出／入時刻、南中時刻の計算
+        # 方針：観測日（現地時間）の「00:00:00」を計算開始地点にする
+
+        # 1. 現在の観測日時を一度ローカルタイム(datetime型)にする
+        utc_now = obs_time.datetime().replace(tzinfo=timezone.utc)
+
+        # JSTなどローカルのタイムゾーン情報を環境変数から取得
+        tz_offset = timezone(timedelta(hours=float(config.env["Tz"]))) # 日本の場合
+
+        local_now = utc_now.astimezone(tz_offset)
+
+        # 2. その日の「00:00:00」を作成 (現地時間)
+        local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # 3. 計算開始用にUTCに戻す
+        start_utc = local_midnight.astimezone(timezone.utc)
+
+        # 4. PyEphemの計算時間をセット
+        obs.date = ephem.Date(start_utc)
+
         moon.compute(obs)
-        zenith_alt = math.degrees(moon.alt)
 
-        # 月の入の方角
-        obs.date = set_time # 観測日を月の出時刻に設定
-        moon.compute(obs)
-        set_azimuth = math.degrees(moon.az) # 方位角（度）
+        # --- 次の月の出・南中・月の入を計算 ---
+        try:
+            rise_time = obs.next_rising(moon)
+            local_rise_dt = rise_time.datetime().astimezone(tz_offset)
+            # 日付が変わっていないかチェック（「今日」の月の出か？）
+            if local_rise_dt.date() != local_midnight.date():
+                 rise_str = "--:-- (なし)"
+                 rise_az_str = "---"
+            else:
+                 rise_str = self.fromUTC(rise_time.datetime())
+                 # 方位計算
+                 obs_temp = ephem.Observer()
+                 obs.date = rise_time
+                 moon.compute(obs)
+                 rise_az_str = f"{math.degrees(moon.az):6.2f}"
+        except ephem.AlwaysUpError:
+             rise_str = "一日中地平線上"
+             rise_az_str = "---"
+        except ephem.NeverUpError:
+             rise_str = "一日中地平線下"
+             rise_az_str = "---"
 
-        # 月齢は現在時刻から前回新月を引き算
-        age = obs.date - ephem.previous_new_moon(obs.date)
+        try:
+            zenith = obs.next_transit(moon)
+            local_zenith_dt = zenith.datetime().astimezone(tz_offset)
+            if local_zenith_dt.date() != local_midnight.date():
+                zenith_str = "--:-- (なし)"
+                zenith_alt_str = "---"
+            else:
+                zenith_str = self.fromUTC(zenith.datetime())
+                # 高度計算
+                obs.date = zenith
+                moon.compute(obs)
+                zenith_alt_str = f"{math.degrees(moon.alt):6.2f}"
+        except:
+             zenith_str = "---"
+             zenith_alt_str = "---"
 
-        value = f"月の出入り：\n"
-        value = value + f"観測日：{local_obs_time}\n"
-        value = value + f"月の出：{local_rise_time:<26}  方位：{rise_azimuth:6.2f}°\n"
-        value = value + f"南中  ：{local_zenith:<26}  高度：{zenith_alt:6.2f}°\n"
-        value = value + f"月の入：{local_set_time:<26}  方位：{set_azimuth:6.2f}°\n"
+        try:
+            set_time = obs.next_setting(moon)
+            local_set_dt = set_time.datetime().astimezone(tz_offset)
+            if local_set_dt.date() != local_midnight.date():
+                set_str = "--:-- (なし)" # 明日のセットになる場合
+            else:
+                set_str = self.fromUTC(set_time.datetime())
+
+            # 月の入の方位計算
+            obs.date = set_time
+            moon.compute(obs)
+            set_az_str = f"{math.degrees(moon.az):6.2f}"
+
+        except:
+             set_str = "---"
+             set_az_str = "---"
+
+        sun = ephem.Sun()
+        transit_time = obs.next_transit(sun)
+        utc_noon = transit_time.datetime().replace(tzinfo=timezone.utc)
+        age = obs.date - ephem.previous_new_moon(utc_noon)
+
+        value = value + f"月の出入り：\n"
+        value = value + f"月の出：{rise_str:<26}  方位：{rise_az_str}°\n"
+        value = value + f"南中  ：{zenith_str:<26}  高度：{zenith_alt_str}°\n"
+        value = value + f"月の入：{set_str:<26}  方位：{set_az_str}°\n"
         value = value + f"月齢  ：{age:.1f}\n"
+
+        # 最後に念のためobs.dateを元に戻しておく
+        obs.date = obs_time
+
         return value
 
+
     def reformat_planet(self, obs, planet):
-        pass
+        value = f"惑星の処理コードは未実装"
+        return value
 
 class SSOObserver:
     def __init__(self, attr, lat=None, lon=None, elev=0, config=None):

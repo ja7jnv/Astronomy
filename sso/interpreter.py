@@ -83,7 +83,7 @@ class SSOInterpreter(Interpreter):
             target.compute(obs)
             alt = np.rad2deg(target.alt)
             az = np.rad2deg(target.az)
-            value = self.config.reformat(obs, target)
+            value = self.config.reformat(obs, target, self.config)
             return value
 
         # 2. Observer -> Mode (Rise, Set)
