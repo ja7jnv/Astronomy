@@ -9,7 +9,7 @@ JTSや他の地方時は、その変換メソッド以外では一切考慮し�
 """
 import ephem
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time
 from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
 
@@ -120,9 +120,10 @@ class MoonEventCalculator:
             rise_time = self.observer.next_rising(self.moon)
             local_rise_dt = rise_time.datetime().astimezone(self.tz_offset)
             
+            ## 日付が変わっていても表示する
             # 日付が変わっていないかチェック
-            if local_rise_dt.date() != local_date:
-                return None, None
+            #if local_rise_dt.date() != local_date:
+            #    return None, None
             
             # 方位計算のため再計算
             self.observer.date = rise_time
@@ -153,9 +154,9 @@ class MoonEventCalculator:
         try:
             transit_time = self.observer.next_transit(self.moon)
             local_transit_dt = transit_time.datetime().astimezone(self.tz_offset)
-            
-            if local_transit_dt.date() != local_date:
-                return None, None
+            ## 日付が変わっていても表示する
+            #if local_transit_dt.date() != local_date:
+            #    return None, None
             
             self.observer.date = transit_time
             self.moon.compute(self.observer)
@@ -180,8 +181,9 @@ class MoonEventCalculator:
             set_time = self.observer.next_setting(self.moon)
             local_set_dt = set_time.datetime().astimezone(self.tz_offset)
             
-            if local_set_dt.date() != local_date:
-                return None, None
+            ## 日付が変わっていても表示する
+            #if local_set_dt.date() != local_date:
+            #    return None, None
             
             self.observer.date = set_time
             self.moon.compute(self.observer)
@@ -212,7 +214,7 @@ class MoonFormatter:
         lines = [
             "月の高度・方位",
             f"輝面比: {position_data['phase']:.2f}%",
-            f"月齢  : {position_data['age']:.2f}",
+            f"月齢  : {position_data['age']:.2f}　（観測時）",
             f"高度  : {position_data['altitude']:.2f}°  方位: {position_data['azimuth']:.2f}°",
             f"視直径: {position_data['diameter']:.2f} arcmin",
             f"距離  : {position_data['distance']:.4f} AU"
@@ -257,7 +259,7 @@ class MoonFormatter:
             f"月の出：{rise_str:<26}  方位：{rise_az_str}°",
             f"南中  ：{transit_str:<26}  高度：{transit_alt_str}°",
             f"月の入：{set_str:<26}  方位：{set_az_str}°",
-            f"月齢  ：{age:.1f}"
+            f"月齢  ：{age:.1f}　（観測日の正午）"
         ]
         return "\n".join(lines)
     
@@ -336,11 +338,17 @@ class MoonFormatterRefactored(CelestialBodyFormatter):
         transit_data = event_calc.calculate_transit(local_date)
         set_data = event_calc.calculate_setting(local_date)
         
-        # 月齢計算
-        sun = ephem.Sun()
-        transit_time = observer.next_transit(sun)
-        utc_noon = transit_time.datetime().replace(tzinfo=timezone.utc)
-        age = observer.date - ephem.previous_new_moon(utc_noon)
+        ## 月齢計算 : 天文台の表示に合わせるため、このロジックは無効
+        #sun = ephem.Sun()
+        #transit_time = observer.next_transit(sun)
+        #utc_noon = transit_time.datetime().replace(tzinfo=timezone.utc)
+        #age = observer.date - ephem.previous_new_moon(utc_noon)
+
+        # 天文台の表示に合わせた正午月齢の計算
+        TZ_OFFSET = float(self.config.env["Tz"])
+        # 12:00(Local) - Tz = 03:00(UTC)   // Tz=9.0の場合
+        local_noon_in_utc = datetime.combine(observer.date.datetime().date(), time(12)) - timedelta(hours=TZ_OFFSET)
+        age = ephem.Date(local_noon_in_utc) - ephem.previous_new_moon(local_noon_in_utc)
         
         # フォーマット
         result += formatter.format_events(rise_data, transit_data, set_data, age)
