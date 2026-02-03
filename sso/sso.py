@@ -43,17 +43,17 @@ class SSOShell(cmd.Cmd):
                 level = getattr(logging, log_mode, logging.CRITICAL)
                 logging.disable(level)
 
-            # 1. パースを実行（末尾に改行を付けて文末を認識させる）
+            # パースを実行（末尾に改行を付けて文末を認識させる）
             tree = self.parser.parse(line + "\n")
 
             # 慣れるまで、解析木を表示する
             logger.debug(tree.pretty())
 
-            # e. visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
+            # visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
             results = self.interp.visit(tree)
             logger.info(results)
 
-            # 3. 表示処理。結果が単一でもリストでも対応できるようにする
+            # 表示処理。結果が単一でもリストでも対応できるようにする
             if not isinstance(results, list):
                 results = [results] # 単一の結果をリストに包んで共通処理へ
                 #「リストの強要」というテクニックらしい
