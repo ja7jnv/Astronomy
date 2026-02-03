@@ -1,0 +1,120 @@
+マイグレーションガイド
+
+* DONE ステップ1: バックアップ
+CLOSED: [2026-02-03 Tue 11:51]
+
+```bash
+# 既存ファイルをバックアップ
+cp classes.py classes_original.py
+cp interpreter.py interpreter_original.py
+```
+
+* DONE ステップ2: 段階的な移行
+CLOSED: [2026-02-03 Tue 11:53]
+
+#### オプションA: 並行稼働（推奨）
+
+リファクタリング版を別名で稼働させ、動作確認後に切り替え
+
+```bash
+# 新しいファイルを使用するREPLを作成
+cp sso.py sso_refactored.py
+```
+
+`sso_refactored.py`を編集：
+
+```python
+# 変更前
+from interpreter import SSOInterpreter
+
+# 変更後
+from interpreter_refactored import SSOInterpreter
+```
+
+テスト実行：
+
+```bash
+# リファクタリング版のテスト
+python sso_refactored.py
+
+# ユニットテストの実行
+python -m pytest test_sso.py -v
+```
+
+#### オプションB: 直接置き換え
+
+動作確認が完了したら：
+
+```bash
+# 既存ファイルを置き換え
+mv classes_refactored.py classes.py
+mv interpreter_refactored.py interpreter.py
+```
+
+* DONE ステップ3: 動作確認
+CLOSED: [2026-02-03 Tue 12:31]
+
+以下のコマンドで基本機能を確認：
+
+```
+sso> Tz = 9
+sso> lat = 39.15
+sso> lon = 140.5
+sso> Yuzawa = Observer(lat, lon, 100)
+sso> Yuzawa -> Moon
+sso> Yuzawa -> Rise -> Moon
+sso> Yuzawa -> Zenith -> Moon
+sso> Moon -> Sun  # 角距離計算
+```
+
+# リファクタリング
+リファクタリングのロードマップ
+段階的に実施することを推奨します：
+
+* TODO フェーズ1: 基盤整備（1-2日）[0%]
+** TODO 定数ファイルの作成
+** TODO 型ヒントの追加
+** TODO ログの統一
+** TODO エラーハンドリングの改善
+
+* TODO フェーズ2: クラス分割（2-3日）
+** TODO MoonPositionCalculatorの実装
+** TODO MoonEventCalculatorの実装
+** TODO MoonFormatterの実装
+** TODO reformat_moonのリファクタリング
+
+* TODO フェーズ3: 継承構造の導入（2-3日）
+** TODO CelestialBodyFormatterの実装
+** TODO PlanetFormatter、SunFormatterの実装
+** TODO FormatterFactoryの実装
+** TODO SSOSystemConfig.reformatの簡素化
+
+* TODO フェーズ4: Interpreterの改善（2-3日）
+** TODO VariableManagerの実装
+** TODO ArrowOperationHandlerの実装
+** TODO SSOInterpreterのリファクタリング
+
+* TODO フェーズ5: 機能追加（3-5日）
+** TODO 未実装機能の追加（UTC, Plot, Zenithなど）
+** TODO 天体間距離計算の実装
+** TODO 文法の拡張
+
+* TODO フェーズ6: テストとドキュメント（2-3日）
+** TODO ユニットテストの作成
+** TODO 統合テストの作成
+** TODO ドキュメントの整備
+
+
+* 7. まとめ
+** 主要な改善点
+*** reformat_moonの分割: 3つのクラス（Calculator × 2、Formatter）に分割
+*** 継承の活用: 抽象基底クラスとファクトリーパターンの導入
+*** Interpreterの整理: VariableManagerとArrowOperationHandlerへの責務分離
+*** 未実装機能の追加: UTC, Plot, Zenith, 距離計算など
+*** コード品質: 型ヒント、エラーハンドリング、定数化
+
+** 期待される効果
+*** 保守性の向上: 責務が明確になり、修正箇所が特定しやすい
+*** 拡張性の向上: 新しい天体の追加が容易
+*** テスト容易性: 小さなクラスは単体テストが書きやすい
+*** 可読性の向上: 構造が整理され、理解しやすい
