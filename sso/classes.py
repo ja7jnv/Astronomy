@@ -9,6 +9,7 @@ JTSや他の地方時は、その変換メソッド以外では一切考慮し�
 """
 import ephem
 import math
+import numpy as np
 from datetime import datetime, timezone, timedelta, time
 from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
@@ -34,6 +35,12 @@ class Constants:
     
     EVENT_ALWAYS_UP = "AlwaysUp"
     EVENT_NEVER_UP = "NeverUp"
+
+    """天文定数(SI)"""
+    EARTH_RADIUS = 6378137.0    # 地球半径(m)
+    AXIAL_TILT_DEG: 23.439      # 地軸傾斜角(度)
+    JULIAN_DAY_J2000: 2451545.0 # J2000.0のユリウス日
+    KM_PER_DEGREE_LAT: 111320   # 緯度1度あたりのm
 
 
 def boolean_setter(key_name: str):
@@ -415,6 +422,66 @@ class SunFormatter(CelestialBodyFormatter):
         return result
 
 
+class earthFormatter(CelestialBodyFormatter):
+    """地上フォーマッター"""
+    
+    def format(self, obs1: ephem.Observer, obs2: ephem.Observer) -> str:
+        logger.debug(f"earthForamatter:")
+        result = self.format_observation_time(obs1)
+
+        # 1. 緯度・経度・標高の取得（ラジアン変換）
+        lat1, lon1, el1 = float(obs1.lat), float(obs1.lon), obs1.elev
+        lat2, lon2, el2 = float(obs2.lat), float(obs2.lon), obs2.elev
+
+        # 地球半径 (m)
+        R = Constants.EARTH_RADIUS
+
+        # 2. ECEF直交座標系への変換 (x, y, z)
+        def to_ecef(lat, lon, h):
+            x = (R + h) * math.cos(lat) * math.cos(lon)
+            y = (R + h) * math.cos(lat) * math.sin(lon)
+            z = (R + h) * math.sin(lat)
+            return np.array([x, y, z])
+
+        p1 = to_ecef(lat1, lon1, el1)
+        p2 = to_ecef(lat2, lon2, el2)
+
+        # 3. 直線距離 (Slant Range)
+        v = p2 - p1
+        slant_range = np.linalg.norm(v)
+
+        # 4. 仰角 (Elevation)
+        # obs1地点での天頂方向ベクトル (単位ベクトル)
+        up_vec = np.array([
+            math.cos(lat1) * math.cos(lon1),
+            math.cos(lat1) * math.sin(lon1),
+            math.sin(lat1)
+        ])
+
+        # ベクトルvとup_vecのなす角から仰角を算出
+        # sin(elev) = (v・up) / |v|
+        sin_elev = np.dot(v, up_vec) / slant_range
+        elevation = math.asin(np.clip(sin_elev, -1.0, 1.0))
+
+        # 5. 方角 (Azimuth)
+        # 北方向ベクトルと東方向ベクトルを定義
+        east_vec = np.array([-math.sin(lon1), math.cos(lon1), 0])
+        north_vec = np.cross(up_vec, east_vec)
+
+        e_comp = np.dot(v, east_vec)
+        n_comp = np.dot(v, north_vec)
+        azimuth = np.arctan2(e_comp, n_comp)    # 戻り値の範囲: (-π,π) の範囲
+
+        distance_km = slant_range / 1000        # meter -> Km
+        azimuth = np.degrees(azimuth) % 360     # 負の値を正の環状(0-360)に変換できるらしい： pythonの仕様 例：-90 % 360 -> 270
+        altitude = np.degrees(elevation)
+
+        result = f"2地点間の距離: {distance_km:.2f} km\n"
+        result = result + f"方位角 (Azimuth): {azimuth:.2f}°\n"
+        result = result + f"仰角  (Altitude): {altitude:.2f}°\n"
+ 
+        return result
+        
 class FormatterFactory:
     """フォーマッター生成ファクトリー"""
     
@@ -431,6 +498,7 @@ class FormatterFactory:
             適切なフォーマッター
         """
         formatters = {
+            ephem.Observer: earthFormatter,
             ephem.Moon: MoonFormatterRefactored,
             ephem.Sun: SunFormatter,
             ephem.Mars: PlanetFormatter,
@@ -452,11 +520,12 @@ class SSOSystemConfig:
     
     def __init__(self):
         self.env = {
-            "Tz": Constants.DEFAULT_TIMEZONE,
-            "Echo": Constants.DEFAULT_ECHO,
-            "Log": Constants.DEFAULT_LOG,
-            "Here": ephem.Observer(),
-            "Time": ephem.now()
+            "Tz"    : Constants.DEFAULT_TIMEZONE,
+            "Echo"  : Constants.DEFAULT_ECHO,
+            "Log"   : Constants.DEFAULT_LOG,
+            "Time"  : ephem.now(),
+            "Here"  : ephem.Observer(),
+            "Chokai": ephem.Observer()
         }
     
     def set_Tz(self, value: float) -> str:
@@ -541,7 +610,23 @@ class SSOSystemConfig:
             フォーマットされた文字列
         """
         logger.debug(f"reformat:\nbody:{body}\ntarget:{target}")
-        
+
+        match body:
+            case ephem.Observer():
+                if target is None:
+                    return self.reformat_observer(body)
+                else: # ファクトリーを使って適切なフォーマッターを取得
+                    formatter = FormatterFactory.create_formatter(type(target), config or self)
+                    return formatter.format(body, target)
+
+            case ephem.Body(): # 天体単体の場合
+                formatter = FormatterFactory.create_formatter(type(body), config or self)
+                return formatter.format(self.env["Here"], body)
+
+            case _:
+                return None
+
+        """
         if isinstance(body, ephem.Observer):
             if target is None:
                 return self.reformat_observer(body)
@@ -556,6 +641,7 @@ class SSOSystemConfig:
             return formatter.format(self.env["Here"], body)
         
         return None
+        """ 
     
     def reformat_observer(self, body: ephem.Observer) -> str:
         """観測地情報を整形"""

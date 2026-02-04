@@ -205,6 +205,11 @@ class ArrowOperationHandler:
             logger.debug("Pattern 4: Body -> Body (distance)")
             return self._calculate_separation(obs, target)
         
+        # パターン5: Observer -> Observer (距離、仰角計算)
+        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Observer):
+            logger.debug("Pattern 5: Observer -> Observer (distance, alt)")
+            return self.config.reformat(obs, target, self.config)
+        
         # 未対応パターン
         logger.warning(f"Unsupported arrow operation: {obs} ({mode}) -> {target}")
         return f"Error: Invalid arrow operation {obs} -> {target}"
@@ -276,22 +281,33 @@ class SSOInterpreter(Interpreter):
         
         # 設定ファイル読み込み
         self._load_config()
+
     
     def _load_config(self) -> None:
+
+        # 観測値の緯度、軽度、及び標高を得る
+        def _observer_set(place: str) -> None:
+            try:
+                lat = ini[place]['lat']
+                lon = ini[place]['lon']
+                elev = ini[place]['elev']
+                setattr(self.config.env[place], "lat", lat)
+                setattr(self.config.env[place], "lon", lon)
+                setattr(self.config.env[place], "elevation", float(elev))
+            except KeyError:
+                pass
+
         """設定ファイルの読み込み"""
         try:
             ini = configparser.ConfigParser()
             ini.read('config.ini', encoding='utf-8')
             
-            # Here（観測地）の設定
-            lat = ini['Here']['lat']
-            lon = ini['Here']['lon']
-            elev = ini['Here']['elev']
-            
-            setattr(self.config.env['Here'], "lat", lat)
-            setattr(self.config.env['Here'], "lon", lon)
-            setattr(self.config.env['Here'], "elevation", float(elev))
-            
+            # Here（観測地）の読み込み
+            _observer_set('Here')
+
+            # Chokai（観測地：鳥海山）の読み込み
+            _observer_set('Chokai')
+
             # 環境変数の設定
             self.config.env['Tz'] = float(ini['ENV']['Tz'])
             self.config.env['Log'] = ini['ENV']['Log'].strip('"')
