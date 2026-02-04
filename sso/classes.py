@@ -36,7 +36,7 @@ class Constants:
     EVENT_ALWAYS_UP = "AlwaysUp"
     EVENT_NEVER_UP = "NeverUp"
 
-    """天文定数(SI)"""
+    """天文定数(SI単位系)"""
     EARTH_RADIUS = 6378137.0    # 地球半径(m)
     AXIAL_TILT_DEG: 23.439      # 地軸傾斜角(度)
     JULIAN_DAY_J2000: 2451545.0 # J2000.0のユリウス日
@@ -262,7 +262,7 @@ class MoonFormatter:
         set_az_str = f"{set_az:6.2f}" if set_az is not None else "---"
         
         lines = [
-            "月の出入り：",
+            "月の出入り",
             f"月の出：{rise_str:<26}  方位：{rise_az_str}°",
             f"南中  ：{transit_str:<26}  高度：{transit_alt_str}°",
             f"月の入：{set_str:<26}  方位：{set_az_str}°",
