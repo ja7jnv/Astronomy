@@ -219,7 +219,7 @@ class MoonFormatter:
             フォーマットされた文字列
         """
         lines = [
-            "月の高度・方位",
+            "観測日時の月の情報",
             f"輝面比: {position_data['phase']:.2f}%",
             f"月齢  : {position_data['age']:.2f}　（観測時）",
             f"高度  : {position_data['altitude']:.2f}°  方位: {position_data['azimuth']:.2f}°",
@@ -365,6 +365,22 @@ class MoonFormatterRefactored(CelestialBodyFormatter):
 
 class PlanetFormatter(CelestialBodyFormatter):
     """惑星専用フォーマッター"""
+
+    constellation = {
+            # 星座の学名: 星座名（日本語）
+            "Aries"     : "おひつじ座",
+            "Taurus"    : "おうし座",
+            "Gemini"    : "ふたご座",
+            "Cancer"    : "かに座",
+            "Leo"       : "しし座",
+            "Virgo"     : "おとめ座",
+            "Libra"     : "てんびん座",
+            "Scorpius"  : "さそり座",
+            "Sagittarius": "いて座",
+            "Capricornus": "やぎ座",
+            "Aquarius"  : "みずがめ座",
+            "Pisces"    : "うお座"
+    }
     
     def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
         """惑星の情報を整形"""
@@ -379,8 +395,11 @@ class PlanetFormatter(CelestialBodyFormatter):
         result += f"方位：{math.degrees(body.az):.2f}°\n"
         
         # 星座
-        constellation = ephem.constellation(body)
-        result += f"星座：{constellation[1]}\n"
+        c = ephem.constellation(body)
+        try:
+            result += f"星座：{self.constellation[c[1]]}\n"
+        except:
+            result += f"星座：{c[1]}\n"
         
         # 等級（あれば）
         if hasattr(body, 'mag'):
@@ -555,18 +574,11 @@ class SSOSystemConfig:
     
     def SSOEphem(self, attr: str, value=None, config=None):
         """ephemの関数やクラスを呼び出す"""
-        logger.debug(f"ephem call: ephem.{attr}({value})")
-        
-        # 値が渡されなければ環境変数から取得
-        if value is None:
-            if attr == "Date":
-                value = self.env["Time"]
-            elif attr == "Observer":
-                value = self.env["Here"]
+        logger.debug(f"SSOEphem: ephem.{attr}({value})")
         
         args = [value] if value is not None else []
         target = getattr(ephem, attr)(*args)
-        logger.debug(f"ephem.{attr}({args}) -> {target}")
+        logger.debug(f"SSOEphem: ephem.{attr}({args}) -> {target}")
         
         return target
     
@@ -626,23 +638,6 @@ class SSOSystemConfig:
             case _:
                 return None
 
-        """
-        if isinstance(body, ephem.Observer):
-            if target is None:
-                return self.reformat_observer(body)
-            else:
-                # ファクトリーを使って適切なフォーマッターを取得
-                formatter = FormatterFactory.create_formatter(type(target), config or self)
-                return formatter.format(body, target)
-        
-        elif isinstance(body, ephem.Body):
-            # 天体単体の場合
-            formatter = FormatterFactory.create_formatter(type(body), config or self)
-            return formatter.format(self.env["Here"], body)
-        
-        return None
-        """ 
-    
     def reformat_observer(self, body: ephem.Observer) -> str:
         """観測地情報を整形"""
         value = f"\n観測日時：{self.fromUTC(body.date)}"
