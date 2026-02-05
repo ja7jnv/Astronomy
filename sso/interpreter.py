@@ -174,9 +174,9 @@ class ArrowOperationHandler:
         Returns:
             処理結果の文字列
         """
-        # パターン1: Observer -> Body (現在の状態)
+        # パターン1: Observer -> Body : 現在の状態
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body) and mode == Constants.MODE_NOW:
-            logger.debug("Pattern 1: Observer -> Body (Now)")
+            logger.debug("Pattern 1: Observer -> Body(Now)")
             target.compute(obs)
             return self.config.reformat(obs, target, self.config)
         
