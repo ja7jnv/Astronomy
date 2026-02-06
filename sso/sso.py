@@ -1,5 +1,6 @@
 import sys
 import cmd
+import ephem
 import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
 from interpreter import SSOInterpreter
@@ -74,7 +75,7 @@ class SSOShell(cmd.Cmd):
                     if res is not None and self.interp.config.env["Echo"]:
                         logger.debug(f"return type: {type(res)}")
                         # type() が <class 'ephem.Date'> なら Tz を加算する
-                        if f"{type(res)}" == "<class 'ephem.Date'>":
+                        if type(res) == ephem.Date:
                             logger.debug(f"Date change: UTC -> UTC+Tz")
                             print(f"UTC+Tz: {self.interp.config.fromUTC(res)}")
                         print(res)

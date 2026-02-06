@@ -176,14 +176,14 @@ class ArrowOperationHandler:
         """
         # パターン1: Observer -> Body : 現在の状態
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body) and mode == Constants.MODE_NOW:
-            logger.debug("Pattern 1: Observer -> Body(Now)")
+            logger.debug("_dispatch_pattern: 1. Observer -> Body")
             target.compute(obs)
             return self.config.reformat(obs, target, self.config)
         
         # パターン2: Observer -> Mode (Rise/Set/Zenith)
         if isinstance(obs, (ephem.Observer, SSOObserver)):
             if target in [Constants.MODE_RISE, Constants.MODE_SET, Constants.MODE_ZENITH]:
-                logger.debug(f"Pattern 2: Observer -> Mode ({target})")
+                logger.debug(f"_dispatch_pattern: 2. Observer -> Mode ({target})")
                 # ObserverとModeのタプルを返す（次の矢印演算子のため）
                 obs_obj = obs if isinstance(obs, ephem.Observer) else obs.ephem_obs
                 return (obs_obj, target)
@@ -191,7 +191,7 @@ class ArrowOperationHandler:
         # パターン3: (Observer, Mode) -> Target (Body名)
         if isinstance(obs, ephem.Observer) and mode in [Constants.MODE_RISE, Constants.MODE_SET, Constants.MODE_ZENITH]:
             if isinstance(target, str):
-                logger.debug(f"Pattern 3: (Observer, {mode}) -> {target}")
+                logger.debug(f"_dispatch_pattern: 3. (Observer, {mode}) -> {target}")
                 
                 # Zenithの場合は特別処理
                 if mode == Constants.MODE_ZENITH:
@@ -202,12 +202,12 @@ class ArrowOperationHandler:
         
         # パターン4: 天体 -> 天体 (距離計算)
         if isinstance(obs, ephem.Body) and isinstance(target, ephem.Body):
-            logger.debug("Pattern 4: Body -> Body (distance)")
+            logger.debug("_dispatch_pattern: 4. Body -> Body (distance)")
             return self._calculate_separation(obs, target)
         
         # パターン5: Observer -> Observer (距離、仰角計算)
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Observer):
-            logger.debug("Pattern 5: Observer -> Observer (distance, alt)")
+            logger.debug("_dispatch_pattern: 5. Observer -> Observer (distance, alt)")
             return self.config.reformat(obs, target, self.config)
         
         # 未対応パターン
@@ -333,10 +333,8 @@ class SSOInterpreter(Interpreter):
         """
         name = tree.children[0].value
         expr = self.visit(tree.children[1])
-        
         self.var_mgr.set_variable(name, expr)
-        value = self.config.reformat(expr, config=self.config) or expr
-        return f"{name}: {value}"
+        return expr
     
     def assign_body(self, tree) -> str:
         """
@@ -350,16 +348,8 @@ class SSOInterpreter(Interpreter):
         """
         name = tree.children[0].value
         expr = self.visit(tree.children[1])
-        
         result = self.var_mgr.set_body(name, expr)
-        
-        # フォーマット済みの結果が返ってくる場合（環境変数）
-        if isinstance(result, str) and ": " in result:
-            return result
-        
-        # それ以外の場合はフォーマット
-        value = self.config.reformat(expr, config=self.config) or expr
-        return f"{name}: {value}"
+        return result
     
     # ===== 演算系 =====
     

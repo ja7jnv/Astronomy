@@ -7,7 +7,7 @@
 import unittest
 import ephem
 from datetime import datetime, timezone
-from classes_refactored import (
+from classes import (
     MoonPositionCalculator,
     MoonEventCalculator,
     MoonFormatter,
