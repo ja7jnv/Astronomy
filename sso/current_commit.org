@@ -42,3 +42,6 @@ ObserverにChokai（鳥海山）のデータをデバッグ用に追加し、表
 # <2026-02-06 Fri 17:45>
 * 計算用クラスとフォーマットクラスを独立
 calculation.py と formatter.py を作成。適用は未。interpreterからformat部分を削除。sso.pyに移管予定。
+
+# <2026-02-06 Fri 21:56>
+* calculation.py と formatter.py を適用するため、トピックブランチを作成
