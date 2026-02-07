@@ -1,11 +1,5 @@
 """
 Lark Interpreterを用いたDSLの実行エンジン
-
-【リファクタリング版】
-- VariableManagerで変数管理を分離
-- ArrowOperationHandlerで矢印演算子の処理を分離
-- 型ヒントを追加
-- エラーハンドリングを改善
 """
 from lark.visitors import Interpreter
 from lark import Token
@@ -15,6 +9,7 @@ from classes import (
     SSOSystemConfig,
     Constants
 )
+from calculation import (CelestialCalculator, EarthCalculator)
 from datetime import datetime, timezone
 from typing import Any, Optional, Union, List
 import numpy as np
@@ -123,92 +118,56 @@ class ArrowOperationHandler:
         self.config = config
         self.var_mgr = variable_manager
     
-    def execute(self, left: Any, right: Any) -> str:
+    def execute(self, obs: Any, target: Any) -> str:
         """
         矢印演算子の実行
         
         Args:
-            left: 左辺（ObserverまたはTuple）
-            right: 右辺（BodyまたはMode）
+            obs   : 左辺（Observer, Body）
+            target: 右辺（Body, Observer）
+
+            1. Observer -> Body[(Date)]
+            2. Observer -> Observer
+            3. Body -> Body
             
         Returns:
-            実行結果の文字列
+            観測結果オブジェクトCelestialCalculator or EarthCalculator
         """
-        # 左辺の解析
-        obs, mode = self._parse_left_operand(left)
-        target = right
         
-        logger.debug(f"Arrow op: {obs} ({mode}) -> {target}")
         
-        # 観測日時の設定
-        if isinstance(obs, ephem.Observer):
-            obs.date = str(self.config.env.get("Time"))
-        
-        # パターンマッチング
-        return self._dispatch_pattern(obs, mode, target)
-    
-    def _parse_left_operand(self, left: Any) -> tuple:
-        """
-        左辺をObserverとModeに分解
-        
-        Args:
-            left: 左辺（単一値またはTuple）
-            
-        Returns:
-            (Observer, Mode) のタプル
-        """
-        if isinstance(left, tuple):
-            return left[0], left[1]
-        else:
-            return left, Constants.MODE_NOW
-    
-    def _dispatch_pattern(self, obs: Any, mode: str, target: Any) -> str:
-        """
-        パターンに応じた処理を振り分け
-        
-        Args:
-            obs: 観測地
-            mode: モード（Now, Rise, Set, Zenith）
-            target: 対象（Body名またはBody）
-            
-        Returns:
-            処理結果の文字列
-        """
-        # パターン1: Observer -> Body : 現在の状態
-        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body) and mode == Constants.MODE_NOW:
-            logger.debug("_dispatch_pattern: 1. Observer -> Body")
+        # パターン1: Observer -> Body : 標準パターン
+        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
+            logger.debug("dispatch_pattern: 1. Observer -> Body")
+            obs.date = str(self.config.env.get("Time"))     # 観測日時の設定
             target.compute(obs)
+            celestial_body = CelestialCalculator(obs, target, self.config)
+            position = celestial_body.caluclate_current_position()
+
+            logger.debug(f"position: {position}")
+
+            # 新しいformatterが完成するまでの暫定
+            print(self.config.reformat(obs, target, self.config))
+
+            return position
+        
+        # パターン2: Observer -> Observer : 距離、仰角計算
+        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Observer):
+            logger.debug("dispatch_pattern: 2. Observer -> Observer (distance, alt)")
             return self.config.reformat(obs, target, self.config)
         
-        # パターン2: Observer -> Mode (Rise/Set/Zenith)
-        if isinstance(obs, (ephem.Observer, SSOObserver)):
-            if target in [Constants.MODE_RISE, Constants.MODE_SET, Constants.MODE_ZENITH]:
-                logger.debug(f"_dispatch_pattern: 2. Observer -> Mode ({target})")
-                # ObserverとModeのタプルを返す（次の矢印演算子のため）
-                obs_obj = obs if isinstance(obs, ephem.Observer) else obs.ephem_obs
-                return (obs_obj, target)
+        # パターン3: Body -> body : 距離計算
+        if isinstance(obs, ephem.Body) and isinstance(target, ephem.Body):
+            logger.debug("dispatch_pattern: 3. Body -> Body (distance)")
+            return self._calculate_separation(obs, target)
         
-        # パターン3: (Observer, Mode) -> Target (Body名)
-        if isinstance(obs, ephem.Observer) and mode in [Constants.MODE_RISE, Constants.MODE_SET, Constants.MODE_ZENITH]:
-            if isinstance(target, str):
-                logger.debug(f"_dispatch_pattern: 3. (Observer, {mode}) -> {target}")
-                
+            """    
                 # Zenithの場合は特別処理
                 if mode == Constants.MODE_ZENITH:
                     return self._handle_zenith(obs, target)
                 
                 # Rise/Setの場合はSSOCalculatorに委譲
                 return SSOCalculator.observe(obs, target, self.config, mode=mode)
-        
-        # パターン4: 天体 -> 天体 (距離計算)
-        if isinstance(obs, ephem.Body) and isinstance(target, ephem.Body):
-            logger.debug("_dispatch_pattern: 4. Body -> Body (distance)")
-            return self._calculate_separation(obs, target)
-        
-        # パターン5: Observer -> Observer (距離、仰角計算)
-        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Observer):
-            logger.debug("_dispatch_pattern: 5. Observer -> Observer (distance, alt)")
-            return self.config.reformat(obs, target, self.config)
+            """
         
         # 未対応パターン
         logger.warning(f"Unsupported arrow operation: {obs} ({mode}) -> {target}")
@@ -270,9 +229,6 @@ class ArrowOperationHandler:
 
 # ===== Interpreterクラス =====
 class SSOInterpreter(Interpreter):
-    """
-    Lark構文木を解釈して実行するクラス（リファクタリング版）
-    """
     
     def __init__(self):
         self.config = SSOSystemConfig()
@@ -281,7 +237,6 @@ class SSOInterpreter(Interpreter):
         
         # 設定ファイル読み込み
         self._load_config()
-
     
     def _load_config(self) -> None:
 
@@ -297,7 +252,6 @@ class SSOInterpreter(Interpreter):
             except KeyError:
                 pass
 
-        """設定ファイルの読み込み"""
         try:
             ini = configparser.ConfigParser()
             ini.read('config.ini', encoding='utf-8')
@@ -492,12 +446,12 @@ class SSOInterpreter(Interpreter):
         if not args:
             # 対話入力モード
             try:
-                year = int(input("... 年 = "))
-                month = int(input("... 月 = "))
-                day = int(input("... 日 = "))
-                hour = int(input("... 時 = "))
-                minute = int(input("... 分 = "))
-                second = int(input("... 秒 = "))
+                year    = int(input("... 年 = "))
+                month   = int(input("... 月 = "))
+                day     = int(input("... 日 = "))
+                hour    = int(input("... 時 = "))
+                minute  = int(input("... 分 = "))
+                second  = int(input("... 秒 = "))
                 
                 d_str = f"{year}/{month}/{day} {hour}:{minute}:{second}"
             except (ValueError, EOFError, KeyboardInterrupt):
@@ -518,12 +472,12 @@ class SSOInterpreter(Interpreter):
         if not args:
             # 対話入力モード（UTCとして）
             try:
-                year = int(input("... 年(UTC) = "))
-                month = int(input("... 月(UTC) = "))
-                day = int(input("... 日(UTC) = "))
-                hour = int(input("... 時(UTC) = "))
-                minute = int(input("... 分(UTC) = "))
-                second = int(input("... 秒(UTC) = "))
+                year    = int(input("... 年(UTC) = "))
+                month   = int(input("... 月(UTC) = "))
+                day     = int(input("... 日(UTC) = "))
+                hour    = int(input("... 時(UTC) = "))
+                minute  = int(input("... 分(UTC) = "))
+                second  = int(input("... 秒(UTC) = "))
                 
                 d_str = f"{year}/{month}/{day} {hour}:{minute}:{second}"
             except (ValueError, EOFError, KeyboardInterrupt):

@@ -7,10 +7,13 @@ import math
 import numpy as np
 from datetime import datetime, timezone, timedelta, time
 from typing import Tuple, Optional, Any
-from classes.constants import Constats
+from classes import Constants
 
 import logging
-loggig.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class CelestialCalculator:
@@ -44,8 +47,8 @@ class CelestialCalculator:
         match self.body.__class__.__name__:
             case "Moon":
                 phase = self.body.phase
+                age = self.observer.date - ephem.previous_new_moon(self.observer.date)
                 illumination = self.body.moon_phase
-                age = self.body.age
                 diameter = self.body.size / 60.0  # arcminutes to degrees
             case "Sun":
                 pass
@@ -92,7 +95,7 @@ class CelestialCalculator:
             logger.info("The body is always up.")
             return Constats.EVENT_ALWAYS_UP, None
 
-        except ephem.NeverUpError):
+        except ephem.NeverUpError:
             logger.info("The body does not rise on this date.")
             return Constats.EVENT_NEVER_UP, None
 
@@ -131,6 +134,16 @@ class CelestialCalculator:
         except Exception as e:
             logger.error(f"Error calculating set time: {e}")
             return None, None
+
+    def calculate_Moon_noon_age(self):
+            # 天文台の表示に合わせた正午月齢の計算
+            TZ_OFFSET = float(self.config.env["Tz"])
+
+            # 12:00(Local) - Tz = 03:00(UTC)   // Tz=9.0の場合
+            local_noon_in_utc = datetime.combine(self.observer.date.datetime().date(), time(12)) - timedelta(hours=TZ_OFFSET)
+            age = ephem.Date(local_noon_in_utc) - ephem.previous_new_moon(local_noon_in_utc)
+            return age
+
 
 
 """

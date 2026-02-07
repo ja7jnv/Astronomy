@@ -45,3 +45,7 @@ calculation.py と formatter.py を作成。適用は未。interpreterからform
 
 # <2026-02-06 Fri 21:56>
 * calculation.py と formatter.py を適用するため、トピックブランチを作成
+
+# <2026-02-07 Sat 17:09>
+* arrow演算の見直し
+普通の式として、値を返す仕様に変更。

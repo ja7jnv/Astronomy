@@ -2,10 +2,6 @@
 このモジュール内のクラスは、すべてUTCで処理する。
 JTSや他の地方時は、その変換メソッド以外では一切考慮しない。
 
-【リファクタリング版】
-- reformat_moonを3つのクラスに分割
-- 継承とファクトリーパターンを導入
-- 型ヒントを追加
 """
 import ephem
 import math
@@ -611,7 +607,7 @@ class SSOSystemConfig:
     
     def reformat(self, body, target=None, config=None) -> Optional[str]:
         """
-        天体情報を整形（リファクタリング版）
+        天体情報を整形
         
         Args:
             body: 観測地または天体

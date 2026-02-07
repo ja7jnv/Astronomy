@@ -31,7 +31,7 @@ class MoonFormatter:
             
         Returns:
             フォーマットされた文字列
-        """
+m       """
         lines = [
             "観測日時の月の情報",
             f"輝面比: {position_data['phase']:.2f}%",
@@ -345,4 +345,44 @@ class FormatterFactory:
         
         formatter_class = formatters.get(body_type, PlanetFormatter)
         return formatter_class(config)
+
+
+    def reformat(self, body, target=None, config=None) -> Optional[str]:
+        """
+        天体情報を整形
+
+        Args:
+            body: 観測地または天体
+            target: 観測対象の天体（bodyが観測地の場合）
+            config: 設定（通常はself）
+
+        Returns:
+            フォーマットされた文字列
+        """
+        logger.debug(f"reformat:\nbody:{body}\ntarget:{target}")
+
+        match body:
+            case ephem.Observer():
+                if target is None:
+                    return self.reformat_observer(body)
+                else: # ファクトリーを使って適切なフォーマッターを取得
+                    formatter = FormatterFactory.create_formatter(type(target), config or self)
+                    return formatter.format(body, target)
+
+            case ephem.Body(): # 天体単体の場合
+                formatter = FormatterFactory.create_formatter(type(body), config or self)
+                return formatter.format(self.env["Here"], body)
+
+            case _:
+                return None
+
+
+    def reformat_observer(self, body: ephem.Observer) -> str:
+        """観測地情報を整形"""
+        value = f"\n観測日時：{self.fromUTC(body.date)}"
+        value += f"\n緯度：{body.lat}"
+        value += f"\n経度：{body.lon}"
+        value += f"\n標高：{body.elevation}"
+        return value
+
 
