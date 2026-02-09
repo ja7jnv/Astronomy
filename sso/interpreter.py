@@ -3,13 +3,9 @@ Lark Interpreterを用いたDSLの実行エンジン
 """
 from lark.visitors import Interpreter
 from lark import Token
-from classes import (
-    SSOObserver, 
-    SSOCalculator, 
-    SSOSystemConfig,
-    Constants
-)
-from calculation import (CelestialCalculator, EarthCalculator)
+from classes import (SSOObserver, SSOSystemConfig, Constants)
+from formatter  import FormatterFactory
+from calculation import (CelestialCalculator, EarthCalculator, SSOCalculator) 
 from datetime import datetime, timezone
 from typing import Any, Optional, Union, List
 import numpy as np
@@ -146,14 +142,14 @@ class ArrowOperationHandler:
             logger.debug(f"position: {position}")
 
             # 新しいformatterが完成するまでの暫定
-            print(self.config.reformat(obs, target, self.config))
+            print(FormatterFactory.reformat(obs, target, self.config))
 
             return position
         
         # パターン2: Observer -> Observer : 距離、仰角計算
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Observer):
             logger.debug("dispatch_pattern: 2. Observer -> Observer (distance, alt)")
-            return self.config.reformat(obs, target, self.config)
+            return FormatterFactory.reformat(obs, target, self.config)
         
         # パターン3: Body -> body : 距離計算
         if isinstance(obs, ephem.Body) and isinstance(target, ephem.Body):

@@ -8,6 +8,8 @@ import numpy as np
 from datetime import datetime, timezone, timedelta, time
 from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
+from calculation import MoonPositionCalculator, MoonEventCalculator, EarthCalculator
+from classes  import Constants
 
 import logging
 logging.basicConfig(
@@ -80,7 +82,7 @@ m       """
             f"月の出：{rise_str:<26}  方位：{rise_az_str}°",
             f"南中  ：{transit_str:<26}  高度：{transit_alt_str}°",
             f"月の入：{set_str:<26}  方位：{set_az_str}°",
-            f"月齢  ：{age:.1f}　（観測日の正午）"
+            f"月齢  ：{age:.1f}　（月が昇った日の正午）"
         ]
         return "\n".join(lines)
     
@@ -260,58 +262,13 @@ class earthFormatter(CelestialBodyFormatter):
     
     def format(self, obs1: ephem.Observer, obs2: ephem.Observer) -> str:
         logger.debug(f"earthForamatter:")
-        result = self.format_observation_time(obs1)
 
-        # 1. 緯度・経度・標高の取得（ラジアン変換）
-        lat1, lon1, el1 = float(obs1.lat), float(obs1.lon), obs1.elev
-        lat2, lon2, el2 = float(obs2.lat), float(obs2.lon), obs2.elev
+        ec = EarthCalculator(obs1, obs2)
+        earth = ec.calculate_direction_distance()
 
-        # 地球半径 (m)
-        R = Constants.EARTH_RADIUS
-
-        # 2. ECEF直交座標系への変換 (x, y, z)
-        def to_ecef(lat, lon, h):
-            x = (R + h) * math.cos(lat) * math.cos(lon)
-            y = (R + h) * math.cos(lat) * math.sin(lon)
-            z = (R + h) * math.sin(lat)
-            return np.array([x, y, z])
-
-        p1 = to_ecef(lat1, lon1, el1)
-        p2 = to_ecef(lat2, lon2, el2)
-
-        # 3. 直線距離 (Slant Range)
-        v = p2 - p1
-        slant_range = np.linalg.norm(v)
-
-        # 4. 仰角 (Elevation)
-        # obs1地点での天頂方向ベクトル (単位ベクトル)
-        up_vec = np.array([
-            math.cos(lat1) * math.cos(lon1),
-            math.cos(lat1) * math.sin(lon1),
-            math.sin(lat1)
-        ])
-
-        # ベクトルvとup_vecのなす角から仰角を算出
-        # sin(elev) = (v・up) / |v|
-        sin_elev = np.dot(v, up_vec) / slant_range
-        elevation = math.asin(np.clip(sin_elev, -1.0, 1.0))
-
-        # 5. 方角 (Azimuth)
-        # 北方向ベクトルと東方向ベクトルを定義
-        east_vec = np.array([-math.sin(lon1), math.cos(lon1), 0])
-        north_vec = np.cross(up_vec, east_vec)
-
-        e_comp = np.dot(v, east_vec)
-        n_comp = np.dot(v, north_vec)
-        azimuth = np.arctan2(e_comp, n_comp)    # 戻り値の範囲: (-π,π) の範囲
-
-        distance_km = slant_range / 1000        # meter -> Km
-        azimuth = np.degrees(azimuth) % 360     # 負の値を正の環状(0-360)に変換できるらしい： pythonの仕様 例：-90 % 360 -> 270
-        altitude = np.degrees(elevation)
-
-        result = f"2地点間の距離: {distance_km:.2f} km\n"
-        result = result + f"方位角 (Azimuth): {azimuth:.2f}°\n"
-        result = result + f"仰角  (Altitude): {altitude:.2f}°\n"
+        result = f"2地点間の距離: {earth.get("distance"):.2f} km\n"
+        result = result + f"方位角 (Azimuth): {earth.get("azimuth"):.2f}°\n"
+        result = result + f"仰角  (Altitude): {earth.get("altitude"):.2f}°\n"
  
         return result
         
@@ -347,7 +304,8 @@ class FormatterFactory:
         return formatter_class(config)
 
 
-    def reformat(self, body, target=None, config=None) -> Optional[str]:
+    @staticmethod
+    def reformat(body, target=None, config=None) -> Optional[str]:
         """
         天体情報を整形
 
@@ -364,7 +322,7 @@ class FormatterFactory:
         match body:
             case ephem.Observer():
                 if target is None:
-                    return self.reformat_observer(body)
+                    return reformat_observer(body)
                 else: # ファクトリーを使って適切なフォーマッターを取得
                     formatter = FormatterFactory.create_formatter(type(target), config or self)
                     return formatter.format(body, target)
@@ -377,7 +335,8 @@ class FormatterFactory:
                 return None
 
 
-    def reformat_observer(self, body: ephem.Observer) -> str:
+    @staticmethod
+    def reformat_observer(body: ephem.Observer) -> str:
         """観測地情報を整形"""
         value = f"\n観測日時：{self.fromUTC(body.date)}"
         value += f"\n緯度：{body.lat}"
