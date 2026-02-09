@@ -18,8 +18,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class MoonFormatter:
-    """月の情報を整形して出力するクラス"""
+class MoonPosition:
+    """天体の情報を整形して出力するクラス"""
     
     def __init__(self, config):
         self.config = config
@@ -132,8 +132,8 @@ class CelestialBodyFormatter(ABC):
         return f"観測日時：{self.config.fromUTC(observer.date)}\n\n"
 
 
-class MoonFormatterRefactored(CelestialBodyFormatter):
-    """月専用フォーマッター（リファクタリング版）"""
+class MoonFormatter(CelestialBodyFormatter):
+    """月専用フォーマッター"""
     
     def format(self, observer: ephem.Observer, body: ephem.Moon) -> str:
         """月の情報を整形"""
@@ -144,7 +144,7 @@ class MoonFormatterRefactored(CelestialBodyFormatter):
         position_calc = MoonPositionCalculator(observer, body, self.config)
         position_data = position_calc.calculate_current_position()
         
-        formatter = MoonFormatter(self.config)
+        formatter = MoonPosition(self.config)
         result += formatter.format_position(position_data) + "\n\n"
         
         # 出入・南中の計算
@@ -289,7 +289,7 @@ class FormatterFactory:
         """
         formatters = {
             ephem.Observer: earthFormatter,
-            ephem.Moon: MoonFormatterRefactored,
+            ephem.Moon: MoonFormatter,
             ephem.Sun: SunFormatter,
             ephem.Mars: PlanetFormatter,
             ephem.Jupiter: PlanetFormatter,

@@ -139,9 +139,11 @@ class ArrowOperationHandler:
             celestial_body = CelestialCalculator(obs, target, self.config)
             position = celestial_body.caluclate_current_position()
 
+            # TODO: position は天体共通なので、ここで共通処理をコールして位置を表示
+
             logger.debug(f"position: {position}")
 
-            # 新しいformatterが完成するまでの暫定
+            # TODO: 新しいformatterが完成するまでの暫定
             print(FormatterFactory.reformat(obs, target, self.config))
 
             return position
