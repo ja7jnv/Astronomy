@@ -49,3 +49,7 @@ calculation.py と formatter.py を作成。適用は未。interpreterからform
 # <2026-02-07 Sat 17:09>
 * arrow演算の見直し
 普通の式として、値を返す仕様に変更。
+
+# <2026-02-09 Mon 17:29>
+* コード担当部分の分離
+classes.pyのformat部分をformat.pyへ、format.pyの計算部分をcalculation.pyへ移動。
