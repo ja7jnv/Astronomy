@@ -98,7 +98,7 @@ class SSOSystemConfig:
         self.env["Time"] = value
         return f"Observation date_time: {self.env['Time']}"
     
-    def SSOEphem(self, attr: str, value=None, config=None):
+    def SSOEphem(self, attr: str, value=None):
         """ephemの関数やクラスを呼び出す"""
         logger.debug(f"SSOEphem: ephem.{attr}({value})")
         

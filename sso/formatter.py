@@ -36,8 +36,8 @@ class BodyPosition:
 m       """
         lines = [
             f"観測日時の{body_name}の情報",
-            f"高度  : {position_data['altitude']:.2f}°",
             f"方位  : {position_data['azimuth']:.2f}°",
+            f"高度  : {position_data['altitude']:.2f}°",
             f"距離  : {position_data['distance']:.4f} AU"
         ]
         
@@ -192,6 +192,16 @@ class MoonFormatter(CelestialBodyFormatter):
 
 class PlanetFormatter(CelestialBodyFormatter):
     """惑星専用フォーマッター"""
+    planet = {
+        "Mercury"   :   "水星",
+        "Venus"     :   "金星",
+        "Earth"     :   "地球",
+        "Mars"      :   "火星",
+        "Jupiter"   :   "木星",
+        "Saturn"    :   "土星",
+        "Uranus"    :   "天王星",
+        "Neptune"   :   "海王星"
+    }
 
     def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
         """惑星の情報を整形"""
@@ -200,17 +210,18 @@ class PlanetFormatter(CelestialBodyFormatter):
         # 惑星の計算
         planet = CelestialCalculator(observer, body, self.config)
         position = planet.calculate_current_position()
-        planet_name = "惑星"
+        planet_eng = getattr(body, 'name')
+        planet_name = self.planet.get(planet_eng, planet_eng)
         
         # 観測日時の惑星の情報
         formatter = BodyPosition(self.config)
         result += formatter.format_position(planet_name, position) + "\n"
         
         # 星座
-        result += f"星座：{position.get('constellation')}\n"
+        result += f"星座  : {position.get('constellation')}\n"
         
         # 等級（あれば）
-        result += f"等級：{position.get('magnitude'):.1f}\n"
+        result += f"等級  : {position.get('magnitude'):.1f}\n"
         result += "\n"
         
         # 惑星の出入り

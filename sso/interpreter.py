@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 # ===== 変数管理クラス =====
 class VariableManager:
-    """変数とBodyの管理を担当するクラス"""
     
     def __init__(self, config: SSOSystemConfig):
         self.variables = {}
@@ -43,7 +42,6 @@ class VariableManager:
     def set_body(self, name: str, value: Any) -> Union[str, Any]:
         """
         Bodyを設定
-        
         Args:
             name: Body名
             value: 値
@@ -108,7 +106,6 @@ class VariableManager:
 
 # ===== 矢印演算子処理クラス =====
 class ArrowOperationHandler:
-    """矢印演算子の処理を担当するクラス"""
     
     def __init__(self, config: SSOSystemConfig, variable_manager: VariableManager):
         self.config = config
@@ -305,6 +302,7 @@ class SSOInterpreter(Interpreter):
         result = self.var_mgr.set_body(name, expr)
         return result
     
+
     # ===== 演算系 =====
     
     def arrow_op(self, tree) -> str:
@@ -338,6 +336,7 @@ class SSOInterpreter(Interpreter):
     def pow(self, tree) -> float:
         return self.visit(tree.children[0]) ** self.visit(tree.children[1])
     
+
     # ===== プリミティブ・変数参照 =====
     
     def number(self, tree) -> float:
@@ -381,6 +380,7 @@ class SSOInterpreter(Interpreter):
         name = tree.children[0].value
         return self.var_mgr.get_body(name)
     
+
     # ===== 関数呼び出し =====
     
     def funccall(self, tree) -> Any:
@@ -439,7 +439,7 @@ class SSOInterpreter(Interpreter):
         
         # その他のephem関数
         logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
-        return self.config.SSOEphem(func_name, *args, config=self.config)
+        return self.config.SSOEphem(func_name, *args)
     
     def _handle_date_function(self, args: List[Any]) -> Any:
         """Date関数の処理"""
@@ -522,6 +522,7 @@ class SSOInterpreter(Interpreter):
         logger.warning("Plot function not yet implemented")
         return "Plot function is not yet implemented"
     
+
     # ===== その他 =====
     
     def arglist(self, tree) -> List[Any]:
@@ -544,3 +545,4 @@ class SSOInterpreter(Interpreter):
             if not isinstance(res, Token):
                 last_result = res
         return last_result
+
