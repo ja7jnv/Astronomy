@@ -1,5 +1,5 @@
 """
-Lark Interpreterを用いたDSLの実行エンジン
+sso interpreter : Lark Interpreterを用いたDSL実行エンジン
 """
 from lark.visitors import Interpreter
 from lark import Token
@@ -134,10 +134,12 @@ class ArrowOperationHandler:
         # パターン1: Observer -> Body : 標準パターン
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
             logger.debug("dispatch_pattern: 1. Observer -> Body")
+
             obs.date = str(self.config.env.get("Time"))     # 観測日時の設定
             target.compute(obs)
+
             celestial_body = CelestialCalculator(obs, target, self.config)
-            position = celestial_body.caluclate_current_position()
+            position = celestial_body.calculate_current_position()
 
             # TODO: position は天体共通なので、ここで共通処理をコールして位置を表示
 

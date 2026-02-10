@@ -8,7 +8,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta, time
 from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
-from calculation import MoonPositionCalculator, MoonEventCalculator, EarthCalculator
+from calculation import CelestialCalculator, EarthCalculator
 from classes  import Constants
 
 import logging
@@ -18,13 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class MoonPosition:
+class BodyPosition:
     """天体の情報を整形して出力するクラス"""
     
     def __init__(self, config):
         self.config = config
     
-    def format_position(self, position_data: Dict[str, float]) -> str:
+    def format_position(self, body_name, position_data: Dict[str, float]) -> str:
         """
         位置情報のフォーマット
         
@@ -35,17 +35,22 @@ class MoonPosition:
             フォーマットされた文字列
 m       """
         lines = [
-            "観測日時の月の情報",
-            f"輝面比: {position_data['phase']:.2f}%",
-            f"月齢  : {position_data['age']:.2f}　（観測時）",
-            f"高度  : {position_data['altitude']:.2f}°  方位: {position_data['azimuth']:.2f}°",
-            f"視直径: {position_data['diameter']:.2f} arcmin",
+            f"観測日時の{body_name}の情報",
+            f"高度  : {position_data['altitude']:.2f}°",
+            f"方位  : {position_data['azimuth']:.2f}°",
             f"距離  : {position_data['distance']:.4f} AU"
         ]
+        
+        if body_name == "月":
+            lines.append(f"月齢  : {position_data['age']:.2f}　（観測時）")
+            lines.append(f"輝面比: {position_data['phase']:.2f}%")
+            lines.append(f"視直径: {position_data['diameter']:.2f} arcmin")
+
         return "\n".join(lines)
     
     def format_events(
         self, 
+        body_name: str,
         rise_data: Tuple, 
         transit_data: Tuple, 
         set_data: Tuple, 
@@ -55,6 +60,7 @@ m       """
         出入・南中情報のフォーマット
         
         Args:
+            body_name: 天体の名前 "月”とか”太陽”
             rise_data: (出時刻, 方位角)
             transit_data: (南中時刻, 高度)
             set_data: (入時刻, 方位角)
@@ -63,6 +69,7 @@ m       """
         Returns:
             フォーマットされた文字列
         """
+        logger.debug("MoonPsition: format_event")
         rise_time, rise_az = rise_data
         transit_time, transit_alt = transit_data
         set_time, set_az = set_data
@@ -77,16 +84,32 @@ m       """
         transit_alt_str = f"{transit_alt:6.2f}" if transit_alt is not None else "---"
         set_az_str = f"{set_az:6.2f}" if set_az is not None else "---"
         
+        # 全角文字のズレを補正
+        # 足りない分をスペースで埋める
+        def pad_fullwidth(text, target_width):
+            # 全角を2、半角を1としてカウントして調整する簡易ロジック
+            import unicodedata
+            w = sum([(2 if unicodedata.east_asian_width(c) in 'FWA' else 1) for c in text])
+            return text + ' ' * (target_width - w)
+
+        label_rise = pad_fullwidth(f"{body_name}の出", 10)
+        label_transit = pad_fullwidth("南中", 10)
+        label_set = pad_fullwidth(f"{body_name}の入", 10)
+
         lines = [
-            "月の出入り",
-            f"月の出：{rise_str:<26}  方位：{rise_az_str}°",
-            f"南中  ：{transit_str:<26}  高度：{transit_alt_str}°",
-            f"月の入：{set_str:<26}  方位：{set_az_str}°",
-            f"月齢  ：{age:.1f}　（月が昇った日の正午）"
+            f"{body_name}の出入り",
+            f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}°",
+            f"{label_transit}：{transit_str:<26}  高度：{transit_alt_str}°",
+            f"{label_set}：{set_str:<26}  方位：{set_az_str}°"
         ]
+
+        if body_name == "月":
+            lines.append(f"月齢  ：{age:.1f}　（月が昇った日の正午）")
+
         return "\n".join(lines)
     
     def _format_event_time(self, event_time: Optional[Any]) -> str:
+        logger.debug(f"_format_event_time: {event_time}")
         """
         イベント時刻の文字列変換
         
@@ -141,86 +164,74 @@ class MoonFormatter(CelestialBodyFormatter):
         result = self.format_observation_time(observer)
         
         # 現在位置の計算とフォーマット
-        position_calc = MoonPositionCalculator(observer, body, self.config)
-        position_data = position_calc.calculate_current_position()
+        moon = CelestialCalculator(observer, body, self.config)
+        position = moon.calculate_current_position()
         
-        formatter = MoonPosition(self.config)
-        result += formatter.format_position(position_data) + "\n\n"
-        
-        # 出入・南中の計算
-        event_calc = MoonEventCalculator(observer, body, self.config)
+        formatter = BodyPosition(self.config)
+        result += formatter.format_position("月", position) + "\n\n"
         
         # 計算開始時刻を設定
-        local_midnight = event_calc.get_local_midnight()
-        local_date = local_midnight.date()
+        local_midnight = moon.get_local_midnight()
+
+        #local_date = local_midnight.date()
         observer.date = ephem.Date(local_midnight)
         body.compute(observer)
         
-        # 各イベントの計算
-        rise_data = event_calc.calculate_rising(local_date)
-        transit_data = event_calc.calculate_transit(local_date)
-        set_data = event_calc.calculate_setting(local_date)
-        
-        ## 月齢計算 : 天文台の表示に合わせるため、このロジックは無効
-        #sun = ephem.Sun()
-        #transit_time = observer.next_transit(sun)
-        #utc_noon = transit_time.datetime().replace(tzinfo=timezone.utc)
-        #age = observer.date - ephem.previous_new_moon(utc_noon)
-
-        # 天文台の表示に合わせた正午月齢の計算
-        TZ_OFFSET = float(self.config.env["Tz"])
-        # 12:00(Local) - Tz = 03:00(UTC)   // Tz=9.0の場合
-        local_noon_in_utc = datetime.combine(observer.date.datetime().date(), time(12)) - timedelta(hours=TZ_OFFSET)
-        age = ephem.Date(local_noon_in_utc) - ephem.previous_new_moon(local_noon_in_utc)
+        # 月の出・南中・月の入の計算
+        rise_data = moon.calculate_rising()
+        transit_data = moon.calculate_transit()
+        set_data = moon.calculate_setting()
+        age = moon.calculate_Moon_noon_age()
         
         # フォーマット
-        result += formatter.format_events(rise_data, transit_data, set_data, age)
-        
+        result += formatter.format_events("月", rise_data, transit_data, set_data, age)
+        result += "\n"
+
         return result
 
 
 class PlanetFormatter(CelestialBodyFormatter):
     """惑星専用フォーマッター"""
 
-    constellation = {
-            # 星座の学名: 星座名（日本語）
-            "Aries"     : "おひつじ座",
-            "Taurus"    : "おうし座",
-            "Gemini"    : "ふたご座",
-            "Cancer"    : "かに座",
-            "Leo"       : "しし座",
-            "Virgo"     : "おとめ座",
-            "Libra"     : "てんびん座",
-            "Scorpius"  : "さそり座",
-            "Sagittarius": "いて座",
-            "Capricornus": "やぎ座",
-            "Aquarius"  : "みずがめ座",
-            "Pisces"    : "うお座"
-    }
-    
     def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
         """惑星の情報を整形"""
         result = self.format_observation_time(observer)
         
         # 惑星の計算
-        body.compute(observer)
+        planet = CelestialCalculator(observer, body, self.config)
+        position = planet.calculate_current_position()
+        planet_name = "惑星"
         
-        # 基本情報
-        result += "惑星の位置\n"
-        result += f"高度：{math.degrees(body.alt):.2f}°\n"
-        result += f"方位：{math.degrees(body.az):.2f}°\n"
+        # 観測日時の惑星の情報
+        formatter = BodyPosition(self.config)
+        result += formatter.format_position(planet_name, position) + "\n"
         
         # 星座
-        c = ephem.constellation(body)
-        try:
-            result += f"星座：{self.constellation[c[1]]}\n"
-        except:
-            result += f"星座：{c[1]}\n"
+        result += f"星座：{position.get('constellation')}\n"
         
         # 等級（あれば）
-        if hasattr(body, 'mag'):
-            result += f"等級：{body.mag:.1f}\n"
+        result += f"等級：{position.get('magnitude'):.1f}\n"
+        result += "\n"
         
+        # 惑星の出入り
+
+        # 計算開始時刻を設定
+        local_midnight = planet.get_local_midnight()
+
+        # local_date = local_midnight.date()
+        observer.date = ephem.Date(local_midnight)
+        body.compute(observer)
+        
+        # 惑星の出・南中・入の計算
+        rise_data = planet.calculate_rising()
+        transit_data = planet.calculate_transit()
+        set_data = planet.calculate_setting()
+        age = None
+        
+        # 出入り情報を追加
+        result += formatter.format_events(planet_name, rise_data, transit_data, set_data, age)
+        result += "\n"
+
         return result
 
 
@@ -232,30 +243,30 @@ class SunFormatter(CelestialBodyFormatter):
         result = self.format_observation_time(observer)
         
         # 太陽の計算
+        sun = CelestialCalculator(observer, body, self.config)
+        position = sun.calculate_current_position()
+
+        formatter = BodyPosition(self.config)
+        result += formatter.format_position("太陽", position) + "\n\n"
+        
+        # 計算開始時刻を設定
+        local_midnight = sun.get_local_midnight()
+
+        #local_date = local_midnight.date()
+        observer.date = ephem.Date(local_midnight)
         body.compute(observer)
         
-        # 現在位置
-        result += "太陽の位置\n"
-        result += f"高度：{math.degrees(body.alt):.2f}°\n"
-        result += f"方位：{math.degrees(body.az):.2f}°\n\n"
+        # 日の出・南中・日の入の計算
+        rise_data = sun.calculate_rising()
+        transit_data = sun.calculate_transit()
+        set_data = sun.calculate_setting()
+        age = None
         
-        # 日の出・南中・日の入
-        try:
-            rise_time = observer.next_rising(body)
-            transit_time = observer.next_transit(body)
-            set_time = observer.next_setting(body)
-            
-            result += "太陽の出入り\n"
-            result += f"日の出：{self.config.fromUTC(rise_time.datetime())}\n"
-            result += f"南中  ：{self.config.fromUTC(transit_time.datetime())}\n"
-            result += f"日の入：{self.config.fromUTC(set_time.datetime())}\n"
-            
-        except Exception as e:
-            logger.error(f"Error calculating sun events: {e}")
-            result += "太陽の出入り：計算エラー\n"
-        
-        return result
+        # フォーマット
+        result += formatter.format_events("日", rise_data, transit_data, set_data, age)
+        result += "\n"
 
+        return result
 
 class earthFormatter(CelestialBodyFormatter):
     """地上フォーマッター"""
