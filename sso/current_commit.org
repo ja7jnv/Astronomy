@@ -64,3 +64,6 @@ classes.pyのformat部分をformat.pyへ、format.pyの計算部分をcalculatio
 # <2026-02-10 Tue 22:39>
 * マイナな修正と惑星表示の和文化。
 惑星の情報を表示する際の惑星名を和文化した。
+
+# <2026-02-11 Wed 08:24>
+* Print関数の追加

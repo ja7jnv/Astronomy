@@ -1,5 +1,7 @@
 # 太陽系観測DSL
 * ephemを直感的に呼び出して天体情報を表示するDSL
+* Webアプリ版はAstronomy Engine (astronomy-js)で考える
+https://share.google/aimode/bByAPUvb3FUIDnmi2
 * 文法解釈にLarkを用い、Interpreterでstatement毎に対話的に実行する
 * 基本構文は
   start: (statement end)*
