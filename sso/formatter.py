@@ -24,6 +24,24 @@ class BodyPosition:
     def __init__(self, config):
         self.config = config
     
+    @staticmethod
+    def get_8direction(degree):
+        """
+        方位角(0〜360未満)を8方位の文字列に変換する
+        """
+        # 360度以上の入力を考慮して調整
+        degree = float(degree) % 360
+
+        # 8方位のリスト（北から東回り）
+        directions = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"]
+
+        # 360度を8つ(45度ずつ)に分割
+        # 各範囲の中心が北(0), 北東(45)になるよう調整
+        # (degree + 22.5) / 45 を行うことで、0-45は北、45-90は北東...と判定する
+        index = int((degree + 22.5) // 45) % 8
+
+        return directions[index]
+
     def format_position(self, body_name, position_data: Dict[str, float]) -> str:
         """
         位置情報のフォーマット
@@ -34,15 +52,17 @@ class BodyPosition:
         Returns:
             フォーマットされた文字列
 m       """
+        az   = position_data['azimuth']
+
         lines = [
             f"観測日時の{body_name}の情報",
-            f"方位  : {position_data['azimuth']:.2f}°",
+            f"方位  : {az:.2f}° ({self.get_8direction(az)})",
             f"高度  : {position_data['altitude']:.2f}°",
             f"距離  : {position_data['distance']:.4f} AU"
         ]
         
         if body_name == "月":
-            lines.append(f"月齢  : {position_data['age']:.2f}　（観測時）")
+            lines.append(f"月齢  : {position_data['age']:.2f}  (観測時)")
             lines.append(f"輝面比: {position_data['phase']:.2f}%")
             lines.append(f"視直径: {position_data['diameter']:.2f} arcmin")
 
@@ -98,9 +118,9 @@ m       """
 
         lines = [
             f"{body_name}の出入り",
-            f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}°",
+            f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}° ({self.get_8direction(rise_az)})",
             f"{label_transit}：{transit_str:<26}  高度：{transit_alt_str}°",
-            f"{label_set}：{set_str:<26}  方位：{set_az_str}°"
+            f"{label_set}：{set_str:<26}  方位：{set_az_str}° ({self.get_8direction(set_az)})"
         ]
 
         if body_name == "月":

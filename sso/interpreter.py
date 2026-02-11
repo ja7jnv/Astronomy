@@ -6,6 +6,7 @@ from lark import Token
 from classes import (SSOObserver, SSOSystemConfig, Constants)
 from formatter  import FormatterFactory
 from calculation import (CelestialCalculator, EarthCalculator, SSOCalculator) 
+from utility import MoonPhase
 from datetime import datetime, timezone
 from typing import Any, Optional, Union, List
 import numpy as np
@@ -433,9 +434,14 @@ class SSOInterpreter(Interpreter):
         if func_name in ["Observer", "Mountain"]:
             return self._handle_location_function(func_name, args)
         
-        # Plot関数
-        if func_name == "Plot":
-            return self._handle_plot_function(args)
+        # Phase関数
+        if func_name == "Phase":
+            return self._handle_phase_function(args)
+
+        # Print関数
+        if func_name == "Print":
+            print(*args)
+            return(args)
         
         # その他のephem関数
         logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
@@ -513,14 +519,18 @@ class SSOInterpreter(Interpreter):
         location = SSOObserver(func_name, lat, lon, elev, config=self.config)
         return location.ephem_obs
     
-    def _handle_plot_function(self, args: List[Any]) -> str:
-        """Plot関数の処理（未実装）"""
+    def _handle_phase_function(self, args: List[Any]) -> str:
+        """Phase関数の処理"""
         if not args:
-            return "Error: Plot requires an argument"
+            return "Error: Phase requires an argument"
         
         # TODO: Matplotlibを使った3Dプロット実装
-        logger.warning("Plot function not yet implemented")
-        return "Plot function is not yet implemented"
+        obs = args[0]
+        moon = args[1]
+        phase = MoonPhase(obs, moon)
+        phase.draw()
+
+        return
     
 
     # ===== その他 =====

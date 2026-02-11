@@ -8,7 +8,7 @@ from classes import SSOSystemConfig
 
 import logging # ログの設定
 logging.basicConfig(
-level=logging.DEBUG, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+level=logging.WARNING, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger =  logging.getLogger(__name__)
@@ -29,6 +29,10 @@ class SSOShell(cmd.Cmd):
         except FileNotFoundError:
             print("Error: 'sso.lark' file not found.")
             sys.exit(1)
+
+    def emptyline(self):
+        # 何もしないように上書き（これがないと直前のコマンドが走る）
+        pass
 
     def default(self, line):
         if not line.strip():
@@ -57,7 +61,7 @@ class SSOShell(cmd.Cmd):
             # 表示処理。結果が単一でもリストでも対応できるようにする
             if not isinstance(results, list):
                 results = [results] # 単一の結果をリストに包んで共通処理へ
-                #「リストの強要」というテクニックらしい
+                # 「リストの強要」というテクニックらしい
 
             for res in results:
                 # Token(改行等)は無視
@@ -72,18 +76,22 @@ class SSOShell(cmd.Cmd):
                                 print(sub_res)
                 else:
                     # 通常の出力
-                    if res is not None and self.interp.config.env["Echo"]:
+                    if res is not None and (self.interp.config.env["Echo"] == "Yes"):
                         logger.debug(f"return type: {type(res)}")
                         # type() が <class 'ephem.Date'> なら Tz を加算する
                         if type(res) == ephem.Date:
                             logger.debug(f"Date change: UTC -> UTC+Tz")
-                            print(f"UTC+Tz: {self.interp.config.fromUTC(res)}")
-                        print(res)
+                            print(f"{self.interp.config.fromUTC(res)}")
+                        else:
+                            print(res)
 
         except Exception as e:
             print(f"Error: {e}")
 
     # --- シェル制御コマンド ---
+    def do_hello(self, arg):
+        print("Hello!")
+
     def do_exit(self, arg):
         """終了コマンド"""
         return True # Trueを返すとループが終了する
