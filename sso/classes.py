@@ -157,8 +157,10 @@ class SSOObserver:
             self.ephem_obs.lat, self.ephem_obs.lon = str(lat), str(lon)
             self.ephem_obs.elevation = elev
             
+            """
             if config:
                 self.ephem_obs.date = config.env["Time"]
+            """
     
     def __repr__(self) -> str:
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
