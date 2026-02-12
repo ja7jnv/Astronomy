@@ -89,12 +89,16 @@ m       """
             f"距離  : {position_data['distance']:.4f} AU"
         ]
         
+        arcmin = "分(arcmin)  ... 1度=60分角(arcmin)"
+
         if body_name == "月":
             lines.append(f"月齢  : {position_data['age']:.2f}  (観測時)")
             lines.append(f"輝面比: {position_data['phase']:.2f}%")
-            lines.append(f"視直径: {position_data['diameter']:.2f} arcmin")
+        if body_name in ("月", "太陽"):
+            lines.append(f"視直径: {position_data['diameter']:.2f} {arcmin}")
 
-        return "\n".join(lines)
+        result = "\n".join(lines)
+        return result
     
     def format_events(
         self, 

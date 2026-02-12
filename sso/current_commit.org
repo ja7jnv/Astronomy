@@ -67,3 +67,15 @@ classes.pyのformat部分をformat.pyへ、format.pyの計算部分をcalculatio
 
 # <2026-02-11 Wed 08:24>
 * Print関数の追加
+
+# <2026-02-12 Thu 09:57>
+* 16方位の表示を追加
+北北東とかの16方位表示を追加し、環境変数Directionで切替える。
+
+# <2026-02-12 Thu 10:01>
+* formatterのレファクトリング終了
+format関連のリファクトリングが完了したのでdevelopブランチに戻る。
+
+# <2026-02-12 Thu 14:47>
+* repl(sso.py)への戻り値を本来の値に修正
+arrow演算の結果を文字列で返さずdict型の数値辞書で返す。

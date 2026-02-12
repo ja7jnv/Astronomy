@@ -52,7 +52,7 @@ class CelestialCalculator:
                 illumination = self.body.moon_phase
                 diameter = self.body.size / 60.0  # arcminutes to degrees
             case "Sun":
-                pass
+                diameter = self.body.size / 60.0  # arcminutes to degrees
             case _:
                 # 惑星の場合
                 magnitude = self.body.mag
