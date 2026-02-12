@@ -42,6 +42,34 @@ class BodyPosition:
 
         return directions[index]
 
+    def directions(self, degree, intermediate):
+        """
+        degree: 0 - <360    方位(°)
+        intermediate: 4, 8, 16  方位分割数
+
+        return: 東西南北, 中間方位
+        """
+
+        directions_4 = ["北", "東", "南", "西"]
+        directions_8 = ["北", "北東", "東", "南東",
+                        "南", "南西", "西", "北西"]
+        directions_16 = ["北", "北北東", "北東", "東北東",
+                         "東", "東南東", "南東", "南南東",
+                         "南", "南南西", "南西", "西南西",
+                         "西", "西北西", "北西", "北北西"]
+        degree = float(degree) % 360
+        if intermediate == 4:
+            index = int((degree + 45) // 90) % 4
+            return directions_4[index]
+        elif intermediate == 8:
+            index = int((degree + 22.5) // 45) % 8
+            return directions_8[index]
+        elif intermediate == 16:
+            index = int((degree + 11.25) // 22.5) % 16
+            return directions_16[index]
+        else:
+            raise ValueError("intermediate must be 4, 8, or 16")
+                
     def format_position(self, body_name, position_data: Dict[str, float]) -> str:
         """
         位置情報のフォーマット
@@ -56,7 +84,7 @@ m       """
 
         lines = [
             f"観測日時の{body_name}の情報",
-            f"方位  : {az:.2f}° ({self.get_8direction(az)})",
+            f"方位  : {az:.2f}° ({self.directions(az,self.config.env.get("Direction", 8))})",
             f"高度  : {position_data['altitude']:.2f}°",
             f"距離  : {position_data['distance']:.4f} AU"
         ]
@@ -118,13 +146,13 @@ m       """
 
         lines = [
             f"{body_name}の出入り",
-            f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}° ({self.get_8direction(rise_az)})",
+            f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}° ({self.directions(rise_az,self.config.env.get("Direction", 8))})",
             f"{label_transit}：{transit_str:<26}  高度：{transit_alt_str}°",
-            f"{label_set}：{set_str:<26}  方位：{set_az_str}° ({self.get_8direction(set_az)})"
+            f"{label_set}：{set_str:<26}  方位：{set_az_str}° ({self.directions(set_az,self.config.env.get("Direction", 8))})"
         ]
 
         if body_name == "月":
-            lines.append(f"月齢  ：{age:.1f}　（月が昇った日の正午）")
+            lines.append(f"月齢      ：{age:.1f}　（月が昇った日の正午）")
 
         return "\n".join(lines)
     

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class Constants:
     """定数クラス"""
     DEFAULT_TIMEZONE = 9.0
-    DEFAULT_ECHO = "Yes"
+    DEFAULT_ECHO = "No"
     DEFAULT_LOG = "No"
     
     MODE_NOW = "Now"
@@ -37,6 +37,7 @@ class Constants:
     AXIAL_TILT_DEG: 23.439      # 地軸傾斜角(度)
     JULIAN_DAY_J2000: 2451545.0 # J2000.0のユリウス日
     KM_PER_DEGREE_LAT: 111320   # 緯度1度あたりのm
+    INTERCARDINAL:  8           # 方位分割 4, 8, 16
 
 
 def boolean_setter(key_name: str):
@@ -69,6 +70,7 @@ class SSOSystemConfig:
             "Echo"  : Constants.DEFAULT_ECHO,
             "Log"   : Constants.DEFAULT_LOG,
             "Time"  : ephem.now(),
+            "Direction" : int(8),
             "Here"  : ephem.Observer(),
             "Chokai": ephem.Observer()
         }
