@@ -62,7 +62,7 @@ class VariableManager:
                 logger.error(f"No setter method for config: {name}")
                 return f"Error: Cannot set {name}"
         
-        # 通常のBody
+        # 通常のBody: TODO-予約語処理を追加する
         self.bodies[name] = value
         logger.debug(f"Body set: {name} = {value}")
         return value
@@ -133,8 +133,8 @@ class ArrowOperationHandler:
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
             logger.debug("dispatch_pattern: 1. Observer -> Body")
 
-            obs.date = str(self.config.env.get("Time"))     # 観測日時の設定
-            target.compute(obs)
+            # ディフォルトの日付を設定：TODO -> Body(Date)の日付を優先するべき
+            obs.date = self.config.env["Time"]
 
             celestial_body = CelestialCalculator(obs, target, self.config)
             position = celestial_body.calculate_current_position()
