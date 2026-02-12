@@ -120,7 +120,7 @@ class ArrowOperationHandler:
             obs   : 左辺（Observer, Body）
             target: 右辺（Body, Observer）
 
-            1. Observer -> Body[(Date)]
+            1. Observer -> Body[ [Date] ]
             2. Observer -> Observer
             3. Body -> Body
             
@@ -139,13 +139,10 @@ class ArrowOperationHandler:
             celestial_body = CelestialCalculator(obs, target, self.config)
             position = celestial_body.calculate_current_position()
 
-            # TODO: position は天体共通なので、ここで共通処理をコールして位置を表示
-
-            logger.debug(f"position: {position}")
-
-            # TODO: 新しいformatterが完成するまでの暫定
+            # 観測情報をprint
             print(FormatterFactory.reformat(obs, target, self.config))
 
+            # 観測結果（位置情報）を返す。repl側ではechoを無視する必要がある。
             return position
         
         # パターン2: Observer -> Observer : 距離、仰角計算
@@ -168,6 +165,7 @@ class ArrowOperationHandler:
             """
         
         # 未対応パターン
+        logger.debug(f"dispatch_pattern: Undefine:\nobs:{obs}\ntarget:{target}")
         logger.warning(f"Unsupported arrow operation: {obs} ({mode}) -> {target}")
         return f"Error: Invalid arrow operation {obs} -> {target}"
     
@@ -383,7 +381,6 @@ class SSOInterpreter(Interpreter):
     
 
     # ===== 関数呼び出し =====
-    
     def funccall(self, tree) -> Any:
         """
         関数呼び出しの処理
@@ -395,7 +392,7 @@ class SSOInterpreter(Interpreter):
             関数の戻り値
         """
         attr = tree.children[0].value
-        logger.debug(f"Function call: {attr}")
+        logger.debug(f"funccall: {attr}")
         
         # 引数の処理
         args = []
@@ -471,6 +468,7 @@ class SSOInterpreter(Interpreter):
         else:
             d_str = args[0]
         
+        logger.debug(f"Date(): d_str={d_str}")
         try:
             utc_dt = self.config.toUTC(d_str)
             return self.config.SSOEphem("Date", utc_dt)
@@ -497,6 +495,7 @@ class SSOInterpreter(Interpreter):
         else:
             d_str = args[0]
         
+        logger.debug(f"UTC(): d_str={d_str}")
         try:
             dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S")
             dt = dt.replace(tzinfo=timezone.utc)

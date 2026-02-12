@@ -78,19 +78,21 @@ class SSOShell(cmd.Cmd):
                     # 通常の出力
                     if res is not None and (self.interp.config.env["Echo"] == "Yes"):
                         logger.debug(f"return type: {type(res)}")
-                        # type() が <class 'ephem.Date'> なら Tz を加算する
-                        if type(res) == ephem.Date:
-                            logger.debug(f"Date change: UTC -> UTC+Tz")
-                            print(f"{self.interp.config.fromUTC(res)}")
-                        else:
-                            print(res)
+                        match res:
+                            case ephem.Date():
+                                # <class 'ephem.Date'> なら Tz を加算する
+                                print(f"{self.interp.config.fromUTC(res)}")
+                            case float() | str() | int():
+                                print(res)
+                            case _:
+                                pass
 
         except Exception as e:
             print(f"Error: {e}")
 
     # --- シェル制御コマンド ---
     def do_hello(self, arg):
-        print("Hello!")
+        print(f"Hello {arg}!")
 
     def do_exit(self, arg):
         """終了コマンド"""
