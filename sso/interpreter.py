@@ -434,6 +434,11 @@ class SSOInterpreter(Interpreter):
         if func_name in ["Observer", "Mountain"]:
             return self._handle_location_function(func_name, args)
         
+        # Direction:    方位分割数
+        if func_name == "Direction":
+           self.config.env["Direction"] = int(*args)
+           return args
+            
         # Phase関数
         if func_name == "Phase":
             return self._handle_phase_function(args)
@@ -441,7 +446,7 @@ class SSOInterpreter(Interpreter):
         # Print関数
         if func_name == "Print":
             print(*args)
-            return(args)
+            return args
         
         # その他のephem関数
         logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
