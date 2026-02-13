@@ -45,7 +45,7 @@ class Constants:
                 "Venus",
                 "Earth", "Moon",
                 "Mars",
-                "Jupiter",
+                "Jupiter", "Io", "Europa", "Ganymede", "Callisto",
                 "Saturn",
                 "Uranus",
                 "Neptune"
