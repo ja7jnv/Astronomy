@@ -27,6 +27,7 @@ class VariableManager:
     def __init__(self, config: SSOSystemConfig):
         self.variables = {}
         self.bodies = {}
+        self.observer = {}
         self.config = config
     
     def set_variable(self, name: str, value: Any) -> None:
@@ -58,11 +59,14 @@ class VariableManager:
                 result = method(value)
                 logger.debug(f"Config set: {name} = {value}")
                 return result
-            except AttributeError:
-                logger.error(f"No setter method for config: {name}")
-                return f"Error: Cannot set {name}"
+            except AttributeError as e:
+                return f"Error: Cannot set {name}, {e}"
         
-        # 通常のBody: TODO-予約語処理を追加する
+        #  予約語は設定拒否
+        if name in Constants.KEYWORD:
+            return f"Error: Cannot set Body name={name}"
+
+        # 通常のBody
         self.bodies[name] = value
         logger.debug(f"Body set: {name} = {value}")
         return value
@@ -133,13 +137,18 @@ class ArrowOperationHandler:
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
             logger.debug("dispatch_pattern: 1. Observer -> Body")
 
-            # ディフォルトの日付を設定：TODO -> Body(Date)の日付を優先するべき
-            obs.date = self.config.env["Time"]
+            # ディフォルトの日付を取得
+            default_date = self.config.env["Time"]
+
+            # Observer -> Body(date) で日付指定がある場合はdateを優先
+            target_name = getattr(target, "name", "Body")
+            obs.date = self.var_mgr.observer.get(target.name, default_date)
+            #               ^^^^^^^^^^^^^^^^ここに日付指定が入っている
 
             celestial_body = CelestialCalculator(obs, target, self.config)
             position = celestial_body.calculate_current_position()
 
-            # 観測情報をprint
+            # 観測情報をprint: TODO - scriptモードを導入するときは考慮
             print(FormatterFactory.reformat(obs, target, self.config))
 
             # 観測結果（位置情報）を返す。repl側ではechoを無視する必要がある。
@@ -433,8 +442,12 @@ class SSOInterpreter(Interpreter):
         
         # Direction:    方位分割数
         if func_name == "Direction":
-           self.config.env["Direction"] = int(*args)
-           return args
+            direction =int(*args)
+            if direction in [4, 8, 16]:
+               self.config.env["Direction"] = int(*args)
+            else:
+                raise ValueError(f"Cannot set {direction}. Allowed values are 4, 8, 16.")
+            return args
             
         # Phase関数
         if func_name == "Phase":
@@ -442,10 +455,12 @@ class SSOInterpreter(Interpreter):
 
         # Print関数
         if func_name == "Print":
-            print(*args)
             return args
         
         # その他のephem関数
+        logger.debug(f"Set date of Body value: {func_name} <- {args[0]}")
+        self.var_mgr.observer[func_name] = args[0]
+
         logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
         return self.config.SSOEphem(func_name, *args)
     

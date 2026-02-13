@@ -204,7 +204,10 @@ class CelestialBodyFormatter(ABC):
     
     def format_observation_time(self, observer: ephem.Observer) -> str:
         """観測日時の共通フォーマット"""
-        return f"観測日時：{self.config.fromUTC(observer.date)}\n\n"
+        result =  f"観測日時：{self.config.fromUTC(observer.date)}\n"
+        result += f"観測地　：緯度={observer.lat}  経度={observer.lon}  標高={observer.elevation:.1f}m\n\n"
+
+        return result
 
 
 class MoonFormatter(CelestialBodyFormatter):

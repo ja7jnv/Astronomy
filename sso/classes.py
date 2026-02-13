@@ -34,10 +34,27 @@ class Constants:
 
     """天文定数(SI単位系)"""
     EARTH_RADIUS = 6378137.0    # 地球半径(m)
-    AXIAL_TILT_DEG: 23.439      # 地軸傾斜角(度)
-    JULIAN_DAY_J2000: 2451545.0 # J2000.0のユリウス日
-    KM_PER_DEGREE_LAT: 111320   # 緯度1度あたりのm
-    INTERCARDINAL:  8           # 方位分割 4, 8, 16
+    AXIAL_TILT_DEG = 23.439      # 地軸傾斜角(度)
+    JULIAN_DAY_J2000 = 2451545.0 # J2000.0のユリウス日
+    KM_PER_DEGREE_LAT = 111320   # 緯度1度あたりのm
+    INTERCARDINAL =  8           # 方位分割 4, 8, 16
+
+    """予約語"""
+    KEYWORD = ( "Sun",
+                "Mercury",
+                "Venus",
+                "Earth", "Moon",
+                "Mars",
+                "Jupiter",
+                "Saturn",
+                "Uranus",
+                "Neptune"
+    )
+
+    """エラーメッセージ"""
+    ERR_HERE = "環境変数Hereへの代入はObserverコマンドの返り値を指定してください。"
+    ERR_TZ = "時差の設定は-12から14の範囲で指定してください。"
+    ERR_TIME = "観測時刻の設定はephem.Dateの形式で指定してください。"
 
 
 def boolean_setter(key_name: str):
@@ -75,11 +92,6 @@ class SSOSystemConfig:
             "Chokai": ephem.Observer()
         }
     
-    def set_Tz(self, value: float) -> str:
-        """タイムゾーンを設定"""
-        self.env["Tz"] = float(value)
-        return f"UTCからの時差: +{self.env['Tz']:g}"
-    
     @boolean_setter("Echo")
     def set_Echo(self, value):
         """エコーモードを設定"""
@@ -90,13 +102,24 @@ class SSOSystemConfig:
         """ログモードを設定"""
         pass
     
+    def set_Tz(self, value: float) -> str:
+        """タイムゾーンを設定"""
+        if -12.0 <= value <= 14.0:
+            self.env["Tz"] = float(value)
+            return f"UTCからの時差: {self.env['Tz']:+.2f}"
+        raise AttributeError(Constants.ERR_TZ)
+    
     def set_Here(self, value: ephem.Observer) -> str:
         """デフォルト観測地を設定"""
+        if not isinstance(value, ephem.Observer):
+            raise AttributeError(Constants.ERR_HERE)
         self.env["Here"] = value
         return f"Default observer: {self.env['Here']}"
     
     def set_Time(self, value) -> str:
         """観測時刻を設定"""
+        if not isinstance(value, ephem.Date):
+            raise AttributeError(Constants.ERR_TIME)
         self.env["Time"] = value
         return f"Observation date_time: {self.env['Time']}"
     
