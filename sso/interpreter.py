@@ -149,6 +149,7 @@ class ArrowOperationHandler:
             position = celestial_body.calculate_current_position()
 
             # 観測情報をprint: TODO - scriptモードを導入するときは考慮
+            print("")
             print(FormatterFactory.reformat(obs, target, self.config))
 
             # 観測結果（位置情報）を返す。repl側ではechoを無視する必要がある。
