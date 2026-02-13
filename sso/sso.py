@@ -34,6 +34,10 @@ class SSOShell(cmd.Cmd):
         # 何もしないように上書き（これがないと直前のコマンドが走る）
         pass
 
+    def reset_observation_environment(self):
+        self.interp.config.env['Time'] = self.interp.config.SSOEphem("now")
+        self.interp.var_mgr.observer = {}
+
     def default(self, line):
         if not line.strip():
             return
@@ -47,6 +51,9 @@ class SSOShell(cmd.Cmd):
             else:
                 level = getattr(logging, log_mode, logging.CRITICAL)
                 logging.disable(level)
+
+            # 観測環境をリセット（観測日時、Bodyの観測日指定）
+            self.reset_observation_environment()
 
             # パースを実行（末尾に改行を付けて文末を認識させる）
             tree = self.parser.parse(line + "\n")
