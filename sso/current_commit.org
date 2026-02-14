@@ -101,3 +101,8 @@ classes.pyのset_{attr}のメソッドにエラーチェックを追加。
 * シンタックスハイライトの導入
 prompt_toolkitでシンタックスハイライト、rich.consoleで出力の色付けを実施。
 色の調整はTODO項目。
+
+#<2026-02-14 Sat 21:58>
+* プロンプトとイントロをカラー化
+* rich.consoleの集約
+classes.pyでインスタンス化し必要なモジュールでimportする形式に変更。
