@@ -4,6 +4,7 @@ sso interpreter : Lark Interpreterを用いたDSL実行エンジン
 from lark.visitors import Interpreter
 from lark import Token
 from classes import (SSOObserver, SSOSystemConfig, Constants)
+from classes import console
 from formatter  import FormatterFactory
 from calculation import (CelestialCalculator, EarthCalculator, SSOCalculator) 
 from utility import MoonPhase
@@ -12,9 +13,6 @@ from typing import Any, Optional, Union, List
 import numpy as np
 import configparser
 import ephem
-
-from rich.console import Console
-console = Console()
 
 import logging
 logging.basicConfig(

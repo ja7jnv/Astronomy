@@ -1,3 +1,5 @@
+# TODO - 入力補完 (Autocompletion): Earth や Moon などのキーワードを途中まで打ったら補完候補を出す。
+
 import logging # ログの設定
 logging.basicConfig(
 level=logging.WARNING, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -12,10 +14,12 @@ import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
 from interpreter import SSOInterpreter
 from classes import SSOSystemConfig, SSOLexer
+from classes import console
 
 # 入力中のコマンドにシンタックスハイライト
 from prompt_toolkit import PromptSession
 from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.formatted_text import HTML
 from pygments import highlight
 from pygments.formatters import TerminalFormatter
 
@@ -36,9 +40,19 @@ style = Style.from_dict({
     'argument': '#aaaaaa',      # 引数をグレーに
 })
 """
+from rich.console import Console
+from rich.panel import Panel
 
 class SSOShell(cmd.Cmd):
+    # prompt_toolkitで使うためのHTMLタグ付きプロンプト
+    # <style名>テキスト</style名> の形式で記述
+    colored_prompt = HTML('<ansicyan>sso</ansicyan><ansigray>></ansigray> ')
+
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
+    intro_text = """
+[bold magenta]SSO Celestial Navigation System[/bold magenta] [dim]v1.0[/dim]
+[cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
+    """
     prompt = "sso> "
 
     def __init__(self):
@@ -63,11 +77,14 @@ class SSOShell(cmd.Cmd):
 
 
     def cmdloop(self, intro=None):
-        print(intro or "DSL Shell Started. (Ctrl+D to exit)")
+        #print(intro or "DSL Shell Started. (Ctrl+D to exit)")
+        # 標準のイントロ表示をスキップし、Richで表示
+        console.print(Panel(self.intro_text, border_style="blue"))
         while True:
             try:
                 # 入力中のハイライト適用
-                text = self.session.prompt(self.prompt)
+                #text = self.session.prompt(self.prompt)
+                text = self.session.prompt(self.colored_prompt)
                 if text.strip():
                     self.onecmd(text)
             except EOFError: break

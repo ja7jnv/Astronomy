@@ -17,6 +17,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# rich.console の集約
+from rich.console import Console
+console = Console()
+
 # ===== 定数定義 =====
 class Constants:
     """定数クラス"""
