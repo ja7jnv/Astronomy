@@ -83,7 +83,7 @@ m       """
         az   = position_data['azimuth']
 
         lines = [
-            f"観測日時の{body_name}の情報",
+            f"[bold gold3]観測日時の{body_name}の情報[/bold gold3]",
             f"方位  : {az:.2f}° ({self.directions(az,self.config.env.get("Direction", 8))})",
             f"高度  : {position_data['altitude']:.2f}°",
             f"距離  : {position_data['distance']:.4f} AU"
@@ -149,7 +149,7 @@ m       """
         label_set = pad_fullwidth(f"{body_name}の入", 10)
 
         lines = [
-            f"{body_name}の出入り",
+            f"[bold gold3]{body_name}の出入り[/bold gold3]",
             f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}° ({self.directions(rise_az,self.config.env.get("Direction", 8))})",
             f"{label_transit}：{transit_str:<26}  高度：{transit_alt_str}°",
             f"{label_set}：{set_str:<26}  方位：{set_az_str}° ({self.directions(set_az,self.config.env.get("Direction", 8))})"
@@ -199,6 +199,8 @@ class CelestialBodyFormatter(ABC):
             
         Returns:
             フォーマットされた文字列
+
+        色情報：$ python -m rich.color
         """
         pass
     

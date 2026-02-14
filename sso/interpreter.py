@@ -13,6 +13,9 @@ import numpy as np
 import configparser
 import ephem
 
+from rich.console import Console
+console = Console()
+
 import logging
 logging.basicConfig(
     level=logging.DEBUG,
@@ -150,9 +153,10 @@ class ArrowOperationHandler:
 
             # 観測情報をprint: TODO - scriptモードを導入するときは考慮
             print("")
-            print(FormatterFactory.reformat(obs, target, self.config))
+            console.print(FormatterFactory.reformat(obs, target, self.config))
 
             # 観測結果（位置情報）を返す。repl側ではechoを無視する必要がある。
+            # TODO - positionだけでなく、rise, transit, set も返したほうがよい
             return position
         
         # パターン2: Observer -> Observer : 距離、仰角計算
@@ -240,7 +244,7 @@ class SSOInterpreter(Interpreter):
         self.config = SSOSystemConfig()
         self.var_mgr = VariableManager(self.config)
         self.arrow_handler = ArrowOperationHandler(self.config, self.var_mgr)
-        
+
         # 設定ファイル読み込み
         self._load_config()
     
