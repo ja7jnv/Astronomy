@@ -1,11 +1,3 @@
-import sys
-import cmd
-import ephem
-import readline  # 矢印キー・履歴が有効
-from lark import Lark, Token
-from interpreter import SSOInterpreter
-from classes import SSOSystemConfig
-
 import logging # ログの設定
 logging.basicConfig(
 level=logging.WARNING, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -13,12 +5,51 @@ format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger =  logging.getLogger(__name__)
 
+import sys
+import cmd
+import ephem
+import readline  # 矢印キー・履歴が有効
+from lark import Lark, Token
+from interpreter import SSOInterpreter
+from classes import SSOSystemConfig, SSOLexer
+
+# 入力中のコマンドにシンタックスハイライト
+from prompt_toolkit import PromptSession
+from prompt_toolkit.lexers import PygmentsLexer
+from pygments import highlight
+from pygments.formatters import TerminalFormatter
+
+from prompt_toolkit.styles.pygments import style_from_pygments_cls
+from pygments.styles import get_style_by_name
+
+# 黒背景に映える鮮やかな配色を適用
+#selected_style = style_from_pygments_cls(get_style_by_name('monokai'))
+#selected_style = style_from_pygments_cls(get_style_by_name('fruity'))
+#selected_style = style_from_pygments_cls(get_style_by_name('native'))
+selected_style = style_from_pygments_cls(get_style_by_name('paraiso-dark'))
+
+#from prompt_toolkit.styles import Style
+# ハイライト用スタイルの定義
+"""
+style = Style.from_dict({
+    'command': '#4af626 bold',  # コマンドを緑色に
+    'argument': '#aaaaaa',      # 引数をグレーに
+})
+"""
+
 class SSOShell(cmd.Cmd):
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
     prompt = "sso> "
 
     def __init__(self):
         super().__init__()
+        
+        # 入力ハイライト用のセッション
+        self.session = PromptSession(
+                lexer=PygmentsLexer(SSOLexer),
+                style=selected_style
+        )
+
         # 文法ファイルの読み込み
         try:
             with open("sso.lark", "r", encoding="utf-8") as f:
@@ -29,6 +60,18 @@ class SSOShell(cmd.Cmd):
         except FileNotFoundError:
             print("Error: 'sso.lark' file not found.")
             sys.exit(1)
+
+
+    def cmdloop(self, intro=None):
+        print(intro or "DSL Shell Started. (Ctrl+D to exit)")
+        while True:
+            try:
+                # 入力中のハイライト適用
+                text = self.session.prompt(self.prompt)
+                if text.strip():
+                    self.onecmd(text)
+            except EOFError: break
+            except KeyboardInterrupt: continue
 
     def emptyline(self):
         # 何もしないように上書き（これがないと直前のコマンドが走る）

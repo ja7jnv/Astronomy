@@ -91,7 +91,7 @@ class SSOSystemConfig:
             "Here"  : ephem.Observer(),
             "Chokai": ephem.Observer()
         }
-    
+
     @boolean_setter("Echo")
     def set_Echo(self, value):
         """エコーモードを設定"""
@@ -188,4 +188,31 @@ class SSOObserver:
     def __repr__(self) -> str:
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
+
+from pygments.lexer import RegexLexer
+from pygments.token import Keyword, Name, String, Number, Operator, Punctuation, Comment, Text
+
+class SSOLexer(RegexLexer):
+    name = 'sso'
+
+    tokens = {
+        'root': [
+            # コメント (Lark: COMMENT)
+            (r'//.*', Comment.Single),
+            # 数値 (Lark: SIGNED_NUMBER)
+            (r'-?\d+\.?\d*([eE][+-]?\d+)?', Number),
+            # 文字列 (Lark: STRING)
+            (r'"[^"]*"|\'[^\']*\'', String),
+            # 演算子 (Lark: ->, +, -, *, /, ^, =)
+            (r'->|\+|-|\*|/|\^|=', Operator),
+            # 区切り文字
+            (r'[();,.]', Punctuation),
+            # BODY_NAME (大文字開始: クラスや天体イメージ)
+            (r'[A-Z][a-zA-Z0-9_]*', Name.Class),
+            # VAR_NAME (小文字開始: 変数イメージ)
+            (r'[a-z][a-zA-Z0-9_]*', Name.Variable),
+            # 空白
+            (r'\s+', Text),
+        ]
+    }
 
