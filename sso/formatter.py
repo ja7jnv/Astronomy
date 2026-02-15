@@ -80,25 +80,40 @@ class BodyPosition:
         Returns:
             フォーマットされた文字列
 m       """
-        az   = position_data['azimuth']
+        az = position_data['azimuth']
+        au = "AU (天文単位: 太陽と地球の平均距離 1AU ≒ 1.5 億Km)"
 
         lines = [
             f"[bold gold3]観測日時の{body_name}の情報[/bold gold3]",
             f"方位  : {az:.2f}° ({self.directions(az,self.config.env.get("Direction", 8))})",
             f"高度  : {position_data['altitude']:.2f}°",
-            f"距離  : {position_data['distance']:.4f} AU"
+            f"距離  : {position_data['distance']:.4f} {au}"
         ]
         
         arcmin = "分(arcmin)  ... 1度=60分角(arcmin)"
 
         if body_name == "月":
-            lines.append(f"月齢  : {position_data['age']:.2f}  (観測時)")
+            age = position_data.get("age", 15.0)
+            phase = self._get_moon_phase(age)
+            lines.append(f"月齢  : {age:.2f}  月の形: {phase} (観測時)")
             lines.append(f"輝面比: {position_data['phase']:.2f}%")
         if body_name in ("月", "太陽"):
             lines.append(f"視直径: {position_data['diameter']:.2f} {arcmin}")
 
         result = "\n".join(lines)
         return result
+
+    def _get_moon_phase(self, age: float) -> str:
+        # 北半球基準の並び
+        phase = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘']
+
+        # 周期を1/16（約1.8日）ずらして、各状態が期間の中央に来るように調整
+        # これにより、満月の瞬間(14.7日前後)にしっかり「🌕」が表示される
+        step = Constants.LUNAR_CYCLE / 8
+        offset = step / 2
+        idx = int((age + offset) % Constants.LUNAR_CYCLE // step)
+
+        return phase[idx]
     
     def format_events(
         self, 
@@ -156,7 +171,8 @@ m       """
         ]
 
         if body_name == "月":
-            lines.append(f"月齢      ：{age:.1f}　（月が昇った日の正午）")
+            phase = self._get_moon_phase(age)
+            lines.append(f"月齢      : {age:.1f}  月の形: {phase} (正午月齢)")
 
         return "\n".join(lines)
     
@@ -207,7 +223,7 @@ class CelestialBodyFormatter(ABC):
     def format_observation_time(self, observer: ephem.Observer) -> str:
         """観測日時の共通フォーマット"""
         result =  f"観測日時：{self.config.fromUTC(observer.date)}\n"
-        result += f"観測地　：緯度={observer.lat}  経度={observer.lon}  標高={observer.elevation:.1f}m\n\n"
+        result += f"観測地　：緯度={observer.lat}  経度={observer.lon}  標高={observer.elevation:.1f} m\n\n"
 
         return result
 

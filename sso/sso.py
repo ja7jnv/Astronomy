@@ -150,7 +150,7 @@ class SSOShell(cmd.Cmd):
                                 # <class 'ephem.Date'> なら Tz を加算する
                                 print(f"{self.interp.config.fromUTC(res)}")
                             case float() | str() | int():
-                                print(res)
+                                console.print(res)
                             case _:
                                 pass
 

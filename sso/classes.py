@@ -42,6 +42,7 @@ class Constants:
     JULIAN_DAY_J2000 = 2451545.0 # J2000.0のユリウス日
     KM_PER_DEGREE_LAT = 111320   # 緯度1度あたりのm
     INTERCARDINAL =  8           # 方位分割 4, 8, 16
+    LUNAR_CYCLE = 29.53          # 月の周期
 
     """予約語"""
     KEYWORD = ( "Sun",
