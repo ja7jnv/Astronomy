@@ -20,18 +20,18 @@ logger = logging.getLogger(__name__)
 class CelestialCalculator:
     constellation = {
             # 星座の学名: 星座名（日本語）
-            "Aries"     : "おひつじ座",
-            "Taurus"    : "おうし座",
-            "Gemini"    : "ふたご座",
-            "Cancer"    : "かに座",
-            "Leo"       : "しし座",
-            "Virgo"     : "おとめ座",
-            "Libra"     : "てんびん座",
-            "Scorpius"  : "さそり座",
-            "Sagittarius": "いて座",
-            "Capricornus": "やぎ座",
-            "Aquarius"  : "みずがめ座",
-            "Pisces"    : "うお座"
+            "Aries"     : "おひつじ座 ♈",
+            "Taurus"    : "おうし座 ♉",
+            "Gemini"    : "ふたご座 ♊",
+            "Cancer"    : "かに座 ♋",
+            "Leo"       : "しし座 ♌",
+            "Virgo"     : "おとめ座 ♍",
+            "Libra"     : "てんびん座 ♎",
+            "Scorpius"  : "さそり座 ♏",
+            "Sagittarius": "いて座 ♐",
+            "Capricornus": "やぎ座 ♑",
+            "Aquarius"  : "みずがめ座 ♒",
+            "Pisces"    : "うお座 ♓"
     }
     
     def __init__(self, observer: ephem.Observer, body: ephem.Body, config):
