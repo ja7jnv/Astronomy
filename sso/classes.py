@@ -53,7 +53,8 @@ class Constants:
                 "Jupiter", "Io", "Europa", "Ganymede", "Callisto",
                 "Saturn",
                 "Uranus",
-                "Neptune"
+                "Neptune",
+                "Pluto"
     )
 
     """エラーメッセージ"""

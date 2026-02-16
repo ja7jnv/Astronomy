@@ -273,7 +273,8 @@ class PlanetFormatter(CelestialBodyFormatter):
         "Jupiter"   :   "木星",
         "Saturn"    :   "土星",
         "Uranus"    :   "天王星",
-        "Neptune"   :   "海王星"
+        "Neptune"   :   "海王星",
+        "Pluto"     :   "冥王星"
     }
 
     def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
@@ -291,10 +292,12 @@ class PlanetFormatter(CelestialBodyFormatter):
         result += formatter.format_position(planet_name, position) + "\n"
         
         # 星座
-        result += f"星座  : [medium_purple3]{position.get('constellation')}[/medium_purple3]\n"
+        result += f"星座  : [light_slate_blue]{position.get('constellation')}[/light_slate_blue] にいます\n"
         
         # 等級（あれば）
-        result += f"等級  : {position.get('magnitude'):.1f}\n"
+        mag = position.get('magnitude')
+        mag_guide = self._get_magnitude_guideline(mag)
+        result += f"等級  : {position.get('magnitude'):.1f}  {mag_guide}\n"
         result += "\n"
         
         # 惑星の出入り
@@ -318,17 +321,20 @@ class PlanetFormatter(CelestialBodyFormatter):
 
         return result
 
-    # TODO - 等級コメントの編集
-    """
-    def _get_magnitude_guideline(self, magi:float) ->str:
-        match mag:
-            case <= 1: res = "非常に明るい"
-            case 1-<2: res = "街なかでも確認可能"
-            case 2-<3: res = "街なかでは明るい星だけが目立つ"
-            case 4-<6: res = "郊外の暗い空で見えるレベル"
-            case 6-<7: res = "肉眼で見える限界の明るさ"
-            case _   : res = "双眼鏡（7×50：9.5等まで）や望遠鏡が必要"
+    # 等級ガイドラインの編集
+    def _get_magnitude_guideline(self, mag:float) ->str:
+        match int(mag):
+            case n if n < 0: res = "[bold bright_white]非常に明るい[/bold bright_white]"
+            case 0: res = "[bright_white]非常に明るい[/bright_white]"
+            case 1: res = "[bright_white]街なかでも確認可能[/bright_white]"
+            case 2: res = "[white]街なかではなんとか見える[/white]"
+            case 3: res = "[gray62]街なかでは見えづらい[/gray62]"
+            case 4: res = "[gray50]郊外の暗い空で見えるレベル[/gray50]"
+            case 5: res = "[gray42]郊外の暗い空でも見えづらい[/gray42]"
+            case 6: res = "[gray30]肉眼で見える限界の明るさ[/gray30]"
+            case _: res = "[gray19]双眼鏡(7×50：9.5 等まで) や望遠鏡が必要[/gray19]"
         return res
+        """
         星の等級別 見え方目安
         〜0等星（マイナス含む）： 非常に明るい。シリウス（-1.46等）、カノープスなど。
         1等星： 1等星は全部で21個。都会でも確認可能。オリオン座のベテルギウスなど。
@@ -336,7 +342,7 @@ class PlanetFormatter(CelestialBodyFormatter):
         4〜5等星： 郊外の暗い空で、星座の形がはっきりとわかるレベル。
         6等星： 肉眼で見える限界の明るさ（限界等級）。満天の星空。
         7等星〜： 双眼鏡（7×50：9.5等まで）や望遠鏡が必要。
-    """
+        """
 
 
 class SunFormatter(CelestialBodyFormatter):

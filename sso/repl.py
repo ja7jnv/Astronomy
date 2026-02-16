@@ -26,6 +26,8 @@ from pygments.formatters import TerminalFormatter
 from prompt_toolkit.styles.pygments import style_from_pygments_cls
 from pygments.styles import get_style_by_name
 
+from completer import sso_completer
+
 # 黒背景に映える鮮やかな配色を適用
 #selected_style = style_from_pygments_cls(get_style_by_name('monokai'))
 #selected_style = style_from_pygments_cls(get_style_by_name('fruity'))
@@ -60,8 +62,9 @@ class SSOShell(cmd.Cmd):
         
         # 入力ハイライト用のセッション
         self.session = PromptSession(
-                lexer=PygmentsLexer(SSOLexer),
-                style=selected_style
+                lexer=PygmentsLexer(SSOLexer),  # シンタックスハイライト
+                completer=sso_completer,        # 補完機能
+                style=selected_style            # 出力のハイライト
         )
 
         # 文法ファイルの読み込み

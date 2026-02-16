@@ -391,15 +391,34 @@ class SSOInterpreter(Interpreter):
         name = tree.children[0].value
         return self.var_mgr.get_body(name)
     
+    def cmdcall(self, tree) -> Any:
+        # コマンド形式の呼び出し
+        attr = tree.children[0].value
+        logger.debug(f"cmdcall: {attr}")
+        
+        # 引数の処理
+        args = []
+        if len(tree.children) > 1:
+            child = tree.children[1]
+            if hasattr(child, 'data'):
+                args = self.visit(child)
+        
+        # 関数ごとの処理を振り分け
+        return self._dispatch_command(attr, args)
+    
+    def _dispatch_command(self, cmd_name: str, args: List[Any]) -> Any:
+        # eclipse 食コマンド
+        match cmd_name:
+            case "eclipse":
+                print(f"command - eclipse: {args}")
+                return
 
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
         """
         関数呼び出しの処理
-        
         Args:
             tree: 構文木
-            
         Returns:
             関数の戻り値
         """
@@ -419,11 +438,9 @@ class SSOInterpreter(Interpreter):
     def _dispatch_function(self, func_name: str, args: List[Any]) -> Any:
         """
         関数名に応じた処理を振り分け
-        
         Args:
             func_name: 関数名
             args: 引数リスト
-            
         Returns:
             関数の戻り値
         """
