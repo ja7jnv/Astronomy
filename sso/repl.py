@@ -108,9 +108,11 @@ class SSOShell(cmd.Cmd):
             log_mode = self.interp.config.env["Log"].strip('"')
 
             if log_mode == "Yes":
-                logging.disable(logging.NOTSET)
+                logging.getLogger().setLevel(logging.DEBUG)
+                #logging.disable(logging.NOTSET)
             elif log_mode == "No":
-                logging.disable(logging.CRITICAL)
+                logging.getLogger().setLevel(logging.CRITICAL)
+                #logging.disable(logging.CRITICAL)
             else:
                 level = getattr(logging, log_mode, logging.CRITICAL)
                 logging.disable(level)

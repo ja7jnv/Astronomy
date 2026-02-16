@@ -1,6 +1,8 @@
 from prompt_toolkit.completion import WordCompleter
 sso_completer = WordCompleter([
-    'Date', 'Direction', 'Here', 'Observer', 'Now', 'Time',      # コマンド
+    'Date', 'Direction', 'Observer', 'Now', 'Time',     # コマンド
+    'Time', 'Here', 'Log', 'Echo',                      # 環境変数
+    ### 天体 ###
     'Sun', 'Mercury', 'Venus',
     'Earth', 'Moon',
     'Mars',
@@ -8,8 +10,7 @@ sso_completer = WordCompleter([
     'Saturn',
     'Uranus',
     'Neptune',
-    'Pluto',
-    'position', 'velocity', 'azimuth' # プロパティ
+    'Pluto'
 ], ignore_case=True) # 大文字小文字を区別しない設定
 
 """

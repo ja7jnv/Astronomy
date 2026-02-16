@@ -94,6 +94,7 @@ class SSOSystemConfig:
             "Log"   : Constants.DEFAULT_LOG,
             "Time"  : ephem.now(),
             "Direction" : int(8),
+            "Earth" : ephem.Observer(),
             "Here"  : ephem.Observer(),
             "Chokai": ephem.Observer()
         }
@@ -193,6 +194,41 @@ class SSOObserver:
     
     def __repr__(self) -> str:
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
+
+class SSOEarth:
+    def __init__(self, earth: ephem.Observer):
+        logger.debug(f"SSOEarth: earth={earth}")
+        self.sun  = ephem.Sun(earth)
+        self.obs  = earth
+        self.moon = ephem.Moon(earth)
+        self.mode = None
+
+    def  lunar_eclipse(self, date: ephem.Date) -> ephem.Date:
+        # 観測地の位置（例：東京）
+        observer = ephem.Observer()
+        observer.lat = '35.68'
+        observer.lon = '139.76'
+
+        # 検索開始日
+        observer.date = '2026/01/01'
+
+        # 10回分の満月（月食候補）を調べる
+        for i in range(10):
+            full_moon = ephem.next_full_moon(observer.date)
+            observer.date = full_moon
+
+            sun = ephem.Sun(observer)
+            moon = ephem.Moon(observer)
+
+            # 太陽と月が反対側にあるか（180度近いか）
+            separation = ephem.separation(sun, moon)
+
+            # 180度（piラジアン）からのずれが小さい（約1度以内）場合、月食の可能性
+            if abs(180 - math.degrees(separation)) < 1.5:
+                # 日本時間(JST)に換算
+                jst_time = ephem.localtime(full_moon)
+                print(f"月食候補: {jst_time} (JST)")
+            return
 
 
 from pygments.lexer import RegexLexer
