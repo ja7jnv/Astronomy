@@ -4,6 +4,7 @@ sso interpreter : Lark Interpreterを用いたDSL実行エンジン
 from lark.visitors import Interpreter
 from lark import Token
 from classes import (SSOObserver, SSOSystemConfig, Constants)
+from classes import SSOEarth
 from classes import console
 from formatter  import FormatterFactory
 from calculation import (CelestialCalculator, EarthCalculator, SSOCalculator) 
@@ -175,6 +176,21 @@ class ArrowOperationHandler:
                 # Rise/Setの場合はSSOCalculatorに委譲
                 return SSOCalculator.observe(obs, target, self.config, mode=mode)
             """
+ 
+        # パターン4: Body -> Observer : 月食の計算
+        if isinstance(obs, ephem.Sun) and isinstance(target, ephem.Observer):
+            logger.debug("dispatch_pattern: 4. Body -> Observer (eclipse)")
+            earth = SSOEarth(target)
+            earth.sun = obs
+            return earth
+
+        if isinstance(obs, SSOEarth) and isinstance(target, ephem.Moon):
+            logger.debug(f"Lunar eclipse mode")
+
+            res = "Lunar eclipse"
+
+            return res
+
         
         # 未対応パターン
         logger.debug(f"dispatch_pattern: Undefine:\nobs:{obs}\ntarget:{target}")
@@ -415,13 +431,6 @@ class SSOInterpreter(Interpreter):
 
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
-        """
-        関数呼び出しの処理
-        Args:
-            tree: 構文木
-        Returns:
-            関数の戻り値
-        """
         attr = tree.children[0].value
         logger.debug(f"funccall: {attr}")
         
@@ -436,53 +445,27 @@ class SSOInterpreter(Interpreter):
         return self._dispatch_function(attr, args)
     
     def _dispatch_function(self, func_name: str, args: List[Any]) -> Any:
-        """
-        関数名に応じた処理を振り分け
-        Args:
-            func_name: 関数名
-            args: 引数リスト
-        Returns:
-            関数の戻り値
-        """
-        # Date関数
-        if func_name == "Date":
-            return self._handle_date_function(args)
-        
-        # UTC関数
-        if func_name == "UTC":
-            return self._handle_utc_function(args)
-        
-        # Now関数
-        if func_name == "Now":
-            return self.config.SSOEphem("now")
-        
-        # Observer/Mountain
-        if func_name in ["Observer", "Mountain"]:
-            return self._handle_location_function(func_name, args)
-        
-        # Direction:    方位分割数
-        if func_name == "Direction":
-            direction =int(*args)
-            if direction in [4, 8, 16]:
-               self.config.env["Direction"] = int(*args)
-            else:
-                raise ValueError(f"Cannot set {direction}. Allowed values are 4, 8, 16.")
-            return args
-            
-        # Phase関数
-        if func_name == "Phase":
-            return self._handle_phase_function(args)
-
-        # Print関数
-        if func_name == "Print":
-            return args
-        
-        # その他のephem関数
-        logger.debug(f"Set date of Body value: {func_name} <- {args[0]}")
-        self.var_mgr.observer[func_name] = args[0]
-
-        logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
-        return self.config.SSOEphem(func_name, *args)
+        match func_name:
+            case "Date": return self._handle_date_function(args)
+            case "UTC" : return self._handle_utc_function(args)
+            case "Now" : return self.config.SSOEphem("now")
+            case  f if f in ["Observer", "Mountain"]:
+                return self._handle_location_function(func_name, args)
+            case "Direction":
+                direction =int(*args)
+                if direction in [4, 8, 16]:
+                    self.config.env["Direction"] = int(*args)
+                else:
+                    raise ValueError(f"Cannot set {direction}. Allowed values are 4, 8, 16.")
+                return args
+            case "Phase": return self._handle_phase_function(args)
+            case "Print": return console.print(args)
+            case _      :
+                # その他のephem関数
+                logger.debug(f"Set date of Body value: {func_name} <- {args[0]}")
+                self.var_mgr.observer[func_name] = args[0]
+                logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
+                return self.config.SSOEphem(func_name, *args)
     
     def _handle_date_function(self, args: List[Any]) -> Any:
         """Date関数の処理"""
