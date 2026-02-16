@@ -22,7 +22,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 # ===== 変数管理クラス =====
 class VariableManager:
     

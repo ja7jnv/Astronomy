@@ -69,6 +69,16 @@ class BodyPosition:
             return directions_16[index]
         else:
             raise ValueError("intermediate must be 4, 8, or 16")
+
+    def altitude_visible(self, alt: float) -> str:
+        match alt:
+            case h if h <= 0:                 res = "見えません"
+            case h if (h > 0) and (h < 10):   res = "地平線ギリギリに見えます"
+            case h if (h >= 10) and (h < 20): res = "地平線近くに見えます"
+            case h if h >= 20:                res = "見えます"
+            case _: res = ""
+        return res
+
                 
     def format_position(self, body_name, position_data: Dict[str, float]) -> str:
         """
@@ -82,11 +92,13 @@ class BodyPosition:
 m       """
         az = position_data['azimuth']
         au = "AU (天文単位: 太陽と地球の平均距離 1AU ≒ 1.5 億Km)"
+        al = position_data.get('altitude')
+        al_guide = self.altitude_visible(al)
 
-        lines = [
+        lines = [ # TODO - 表示桁合わせ必要
             f"[bold gold3]観測日時の{body_name}の情報[/bold gold3]",
             f"方位  : {az:.2f}° ({self.directions(az,self.config.env.get("Direction", 8))})",
-            f"高度  : {position_data['altitude']:.2f}°",
+            f"高度  : {al:.2f}°  {al_guide}",
             f"距離  : {position_data['distance']:.4f} {au}"
         ]
         
