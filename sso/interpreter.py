@@ -148,8 +148,8 @@ class ArrowOperationHandler:
             position = celestial_body.calculate_current_position()
 
             # 観測情報をprint: TODO - scriptモードを導入するときは考慮
-            print("")
-            console.print(FormatterFactory.reformat(obs, target, self.config))
+            logger.debug(f"Width: {console.width}, Height: {console.height}")
+            console.print(FormatterFactory.reformat(obs, target, self.config), crop=False)
 
             # 観測結果（位置情報）を返す。repl側ではechoを無視する必要がある。
             # TODO - positionだけでなく、rise, transit, set も返したほうがよい
