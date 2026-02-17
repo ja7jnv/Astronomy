@@ -83,10 +83,8 @@ class BodyPosition:
     def format_position(self, body_name, position_data: Dict[str, float]) -> str:
         """
         位置情報のフォーマット
-        
         Args:
             position_data: calculate_current_positionの戻り値
-            
         Returns:
             フォーマットされた文字列
 m       """
@@ -137,14 +135,12 @@ m       """
     ) -> str:
         """
         出入・南中情報のフォーマット
-        
         Args:
             body_name: 天体の名前 "月”とか”太陽”
             rise_data: (出時刻, 方位角)
             transit_data: (南中時刻, 高度)
             set_data: (入時刻, 方位角)
             age: 月齢
-            
         Returns:
             フォーマットされた文字列
         """
@@ -218,11 +214,9 @@ class CelestialBodyFormatter(ABC):
     def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
         """
         天体情報をフォーマット
-        
         Args:
             observer: 観測地
             body: 天体
-            
         Returns:
             フォーマットされた文字列
 
@@ -232,7 +226,7 @@ class CelestialBodyFormatter(ABC):
     
     def format_observation_time(self, observer: ephem.Observer) -> str:
         """観測日時の共通フォーマット"""
-        result =  f"観測日時：{self.config.fromUTC(observer.date)}\n"
+        result  = f"観測日時：{self.config.fromUTC(observer.date)}\n"
         result += f"観測地　：緯度={observer.lat}  経度={observer.lon}  標高={observer.elevation:.1f} m\n\n"
 
         return result
@@ -251,7 +245,8 @@ class MoonFormatter(CelestialBodyFormatter):
         position = moon.calculate_current_position()
         
         formatter = BodyPosition(self.config)
-        result += formatter.format_position("月", position) + "\n\n"
+        result += formatter.format_position("月", position) + "\n"
+        result += "\n"
         
         # 計算開始時刻を設定
         local_midnight = moon.get_local_midnight()
@@ -268,7 +263,7 @@ class MoonFormatter(CelestialBodyFormatter):
         
         # フォーマット
         result += formatter.format_events("月", rise_data, transit_data, set_data, age)
-        result += "\n"
+        #result += "\n"
 
         return result
 
@@ -327,7 +322,6 @@ class PlanetFormatter(CelestialBodyFormatter):
         
         # 出入り情報を追加
         result += formatter.format_events(planet_name, rise_data, transit_data, set_data, age)
-        result += "\n"
 
         return result
 
@@ -384,7 +378,6 @@ class SunFormatter(CelestialBodyFormatter):
         
         # フォーマット
         result += formatter.format_events("日", rise_data, transit_data, set_data, age)
-        result += "\n"
 
         return result
 
@@ -410,11 +403,8 @@ class FormatterFactory:
     def create_formatter(body_type: type, config) -> CelestialBodyFormatter:
         """
         天体タイプに応じたフォーマッターを生成
-        
         Args:
             body_type: 天体の型
-            config: 設定オブジェクト
-            
         Returns:
             適切なフォーマッター
         """
@@ -439,12 +429,10 @@ class FormatterFactory:
     def reformat(body, target=None, config=None) -> Optional[str]:
         """
         天体情報を整形
-
         Args:
             body: 観測地または天体
             target: 観測対象の天体（bodyが観測地の場合）
             config: 設定（通常はself）
-
         Returns:
             フォーマットされた文字列
         """
