@@ -91,26 +91,26 @@ class BodyPosition:
             フォーマットされた文字列
 m       """
         az = position_data['azimuth']
-        au = "AU (天文単位: 太陽と地球の平均距離 1AU ≒ 1.5 億Km)"
+        au = "天文単位AU: 太陽と地球の平均距離 1AU ≒ 1.5 億Km"
         al = position_data.get('altitude')
         al_guide = self.altitude_visible(al)
 
         lines = [ # TODO - 表示桁合わせ必要
             f"[bold gold3]観測日時の{body_name}の情報[/bold gold3]",
-            f"方位  : {az:.2f}° ({self.directions(az,self.config.env.get("Direction", 8))})",
-            f"高度  : {al:.2f}°  {al_guide}",
-            f"距離  : {position_data['distance']:.4f} {au}"
+            f"方位  : {f'{az:.2f}°':<9}  {self.directions(az,self.config.env.get("Direction", 8))}",
+            f"高度  : {f'{al:.2f}°':<9}  {al_guide}",
+            f"距離  : {f'{position_data['distance']:.4f} AU':<9}  {au}"
         ]
         
-        arcmin = "分(arcmin)  ... 1度=60分角(arcmin)"
+        arcmin = "分角arcmin: 1°= 60 arcmin"
 
         if body_name == "月":
             age = position_data.get("age", 15.0)
             phase = self._get_moon_phase(age)
-            lines.append(f"月齢  : {age:.2f}  月の形: {phase} (観測時)")
-            lines.append(f"輝面比: {position_data['phase']:.2f}%")
+            lines.append(f"月齢  : {f'{age:.2f}':<9}  月の形: {phase} [観測時]")
+            lines.append(f"輝面比: {f'{position_data['phase']:.2f} %':<9}")
         if body_name in ("月", "太陽"):
-            lines.append(f"視直径: {position_data['diameter']:.2f} {arcmin}")
+            lines.append(f"視直径: {f'{position_data['diameter']:.2f} arcmin':<9}  {arcmin}")
 
         result = "\n".join(lines)
         return result
@@ -177,14 +177,14 @@ m       """
 
         lines = [
             f"[bold gold3]{body_name}の出入り[/bold gold3]",
-            f"{label_rise}：{rise_str:<26}  方位：{rise_az_str}° ({self.directions(rise_az,self.config.env.get("Direction", 8))})",
-            f"{label_transit}：{transit_str:<26}  高度：{transit_alt_str}°",
-            f"{label_set}：{set_str:<26}  方位：{set_az_str}° ({self.directions(set_az,self.config.env.get("Direction", 8))})"
+            f"{label_rise}：{rise_str:<26}    方位：{rise_az_str}° [{self.directions(rise_az,self.config.env.get("Direction", 8))}]",
+            f"{label_transit}：{transit_str:<26}    高度：{transit_alt_str}°",
+            f"{label_set}：{set_str:<26}    方位：{set_az_str}° [{self.directions(set_az,self.config.env.get("Direction", 8))}]"
         ]
 
         if body_name == "月":
             phase = self._get_moon_phase(age)
-            lines.append(f"月齢      : {age:.1f}  月の形: {phase} (正午月齢)")
+            lines.append(f"月齢      : {age:.1f}     月の形: {phase} [正午]")
 
         return "\n".join(lines)
     
@@ -192,10 +192,8 @@ m       """
         logger.debug(f"_format_event_time: {event_time}")
         """
         イベント時刻の文字列変換
-        
         Args:
             event_time: ephem.Dateまたは特殊な文字列
-            
         Returns:
             フォーマットされた時刻文字列
         """

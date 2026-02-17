@@ -75,10 +75,8 @@ class VariableManager:
     def get_body(self, name: str) -> Any:
         """
         Bodyを取得
-        
         Args:
             name: Body名
-            
         Returns:
             Body、環境変数、またはephemオブジェクト
         """
@@ -181,12 +179,20 @@ class ArrowOperationHandler:
             logger.debug("dispatch_pattern: 4. Body -> Observer (eclipse)")
             earth = SSOEarth(target)
             earth.sun = obs
+            earth.obs = target
+            earth.obs.date = self.config.env.get("Time", ephem.now())
             return earth
 
         if isinstance(obs, SSOEarth) and isinstance(target, ephem.Moon):
             logger.debug(f"Lunar eclipse mode")
+            obs.moon = target
+            period = self.var_mgr.observer.get("Moon",5)
+            res = obs.lunar_eclipse(period)     # 地球上で起きるすべての月食の日
 
-            res = "Lunar eclipse"
+            # zip()関数を使って、dateとseparationを同時に取り出す
+            for d, s, stat in zip(res.get('date'), res.get('separation'), res.get('status')):
+                d = self.config.fromUTC(d)
+                console.print(f"発生日: {f'{d}':<20}  離角: {s:.4f}, 状態: {stat}")
 
             return res
 

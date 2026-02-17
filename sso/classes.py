@@ -43,6 +43,9 @@ class Constants:
     KM_PER_DEGREE_LAT = 111320   # 緯度1度あたりのm
     INTERCARDINAL =  8           # 方位分割 4, 8, 16
     LUNAR_CYCLE = 29.53          # 月の周期
+    ANGLE_LUNAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
+    LUNAR_ECLIPSE_SF = 1.02     # 計算誤差許容値
+    LUNAR_ECLIPSE_PARTIAL = 0.018 # 半影食の限界値 0.015近辺で調整
 
     """予約語"""
     KEYWORD = ( "Sun",
@@ -203,32 +206,38 @@ class SSOEarth:
         self.moon = ephem.Moon(earth)
         self.mode = None
 
-    def  lunar_eclipse(self, date: ephem.Date) -> ephem.Date:
-        # 観測地の位置（例：東京）
-        observer = ephem.Observer()
-        observer.lat = '35.68'
-        observer.lon = '139.76'
+    def lunar_eclipse(self, period: int) -> Any:
+        logger.debug(f"lunar_eclipse: date: {period}, obs={self.obs}, moon={self.moon}, sun={self.sun}")
+        date = []
+        separation = []
+        status = []
 
-        # 検索開始日
-        observer.date = '2026/01/01'
+        # 満月（月食候補）を調べる
+        for i in range(period*12): # 調査年数periodに年間発生満月回数12を乗じる
+            full_moon = ephem.next_full_moon(self.obs.date)
+            self.obs.date = full_moon
 
-        # 10回分の満月（月食候補）を調べる
-        for i in range(10):
-            full_moon = ephem.next_full_moon(observer.date)
-            observer.date = full_moon
+            sun = ephem.Sun(self.obs)
+            moon = ephem.Moon(self.obs)
 
-            sun = ephem.Sun(observer)
-            moon = ephem.Moon(observer)
+            # 太陽と月の離角を計算（ラジアン）
+            # 月食は離角が180度（πラジアン）に近い時に起こる
+            sep = ephem.separation(moon, sun)
+            diff_from_180 = abs(sep - math.pi)
+            
+            # 地球の影（本影＋半影）のサイズからして、
+            # 約0.025ラジアン以内なら何らかの食が起きる
+            scale_factor = Constants.LUNAR_ECLIPSE_SF   # 誤差許容値1.02
+            if diff_from_180 < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
+                # その地点で月が地平線より上にあるか
+                if moon.alt > 0:
+                    stat = "皆既/部分食" if diff_from_180 < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
+                    status.append(stat)
+                    date.append(full_moon)
+                    separation.append(diff_from_180)
+                    logger.debug(f"lunar_eclipse: date={full_moon}, sep={diff_from_180}, status-{status}")
 
-            # 太陽と月が反対側にあるか（180度近いか）
-            separation = ephem.separation(sun, moon)
-
-            # 180度（piラジアン）からのずれが小さい（約1度以内）場合、月食の可能性
-            if abs(180 - math.degrees(separation)) < 1.5:
-                # 日本時間(JST)に換算
-                jst_time = ephem.localtime(full_moon)
-                print(f"月食候補: {jst_time} (JST)")
-            return
+        return {"date": date, "separation": separation, "status": status}
 
 
 from pygments.lexer import RegexLexer

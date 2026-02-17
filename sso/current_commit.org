@@ -115,3 +115,7 @@ classes.pyでインスタンス化し必要なモジュールでimportする形�
 * 食の計算のためSSOEarthクラスの作成
 * funccallのディスパッチをif文の羅列からmatch文に変更
 * ログレベルの変更をlogging.getLogger().setLevel()に変更
+
+# <2026-02-17 Tue 17:51>
+* 月食のロジックを組込み
+月食のロジックをclasses.pyのSSOEarthクラスに追加。
