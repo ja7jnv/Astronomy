@@ -118,20 +118,18 @@ class ArrowOperationHandler:
     def execute(self, obs: Any, target: Any) -> str:
         """
         矢印演算子の実行
-        
         Args:
             obs   : 左辺（Observer, Body）
             target: 右辺（Body, Observer）
-
             1. Observer -> Body[ [Date] ]
             2. Observer -> Observer
             3. Body -> Body
-            
         Returns:
             観測結果オブジェクトCelestialCalculator or EarthCalculator
         """
         
-        
+        print("")
+
         # パターン1: Observer -> Body : 標準パターン
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
             logger.debug("dispatch_pattern: 1. Observer -> Body")
