@@ -87,7 +87,7 @@ class SSOShell(cmd.Cmd):
             try:
                 # 入力中のハイライト適用
                 #text = self.session.prompt(self.prompt)
-                text = self.session.prompt(self.colored_prompt)
+                text = self.session.prompt(self.colored_prompt, reserve_space_for_menu=0)
                 if text.strip():
                     self.onecmd(text)
             except EOFError: break

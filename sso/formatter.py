@@ -226,7 +226,8 @@ class CelestialBodyFormatter(ABC):
     
     def format_observation_time(self, observer: ephem.Observer) -> str:
         """観測日時の共通フォーマット"""
-        result  = f"観測日時：{self.config.fromUTC(observer.date)}\n"
+        result  = ""
+        result += f"観測日時：{self.config.fromUTC(observer.date)}\n"
         result += f"観測地　：緯度={observer.lat}  経度={observer.lon}  標高={observer.elevation:.1f} m\n\n"
 
         return result
@@ -263,7 +264,7 @@ class MoonFormatter(CelestialBodyFormatter):
         
         # フォーマット
         result += formatter.format_events("月", rise_data, transit_data, set_data, age)
-        #result += "\n"
+        result += "\n"
 
         return result
 
@@ -322,6 +323,7 @@ class PlanetFormatter(CelestialBodyFormatter):
         
         # 出入り情報を追加
         result += formatter.format_events(planet_name, rise_data, transit_data, set_data, age)
+        result += "\n"
 
         return result
 
@@ -378,6 +380,7 @@ class SunFormatter(CelestialBodyFormatter):
         
         # フォーマット
         result += formatter.format_events("日", rise_data, transit_data, set_data, age)
+        result += "\n"
 
         return result
 

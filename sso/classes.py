@@ -38,14 +38,17 @@ class Constants:
     EVENT_NEVER_UP = "NeverUp"
 
     """天文定数(SI単位系)"""
-    EARTH_RADIUS = 6378137.0    # 地球半径(m)
+    ATMOSPHERIC_PRESSURE = 1013.25  # 標準大気圧 1013.25 (hPa)
+    AVERAGE_TEMPERATURE = 15.0   # 計算に使う平均気温 (15℃)
+    EARTH_RADIUS = 6378137.0     # 地球半径(m)
     AXIAL_TILT_DEG = 23.439      # 地軸傾斜角(度)
     JULIAN_DAY_J2000 = 2451545.0 # J2000.0のユリウス日
     KM_PER_DEGREE_LAT = 111320   # 緯度1度あたりのm
     INTERCARDINAL =  8           # 方位分割 4, 8, 16
+    MOONSET_ALTITUDE = -1.2      # 月没判断高度 -1.2度
     LUNAR_CYCLE = 29.53          # 月の周期
     ANGLE_LUNAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
-    LUNAR_ECLIPSE_SF = 1.02     # 計算誤差許容値
+    LUNAR_ECLIPSE_SF = 1.02      # 計算誤差許容値
     LUNAR_ECLIPSE_PARTIAL = 0.018 # 半影食の限界値 0.015近辺で調整
 
     """予約語"""
@@ -207,6 +210,9 @@ class SSOEarth:
         self.moon = ephem.Moon(earth)
         self.mode = None
 
+        self.obs.pressure = Constants.ATMOSPHERIC_PRESSURE
+        self.obs.temp = Constants.AVERAGE_TEMPERATURE
+
     def lunar_eclipse(self, period: int) -> Any:
         logger.debug(f"lunar_eclipse: date: {period}, obs={self.obs}, moon={self.moon}, sun={self.sun}")
         date = []
@@ -231,7 +237,7 @@ class SSOEarth:
             scale_factor = Constants.LUNAR_ECLIPSE_SF   # 誤差許容値1.02
             if diff_from_180 < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
                 # その地点で月が地平線より上にあるか
-                if moon.alt > 0:
+                if moon.alt > math.radians(Constants.MOONSET_ALTITUDE):
                     stat = "皆既/部分食" if diff_from_180 < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
                     status.append(stat)
                     date.append(full_moon)
