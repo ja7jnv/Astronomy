@@ -19,6 +19,13 @@ https://share.google/aimode/bByAPUvb3FUIDnmi2
 * 文法と解釈後の処理を確認するため、第1段階は月に固定して機能確認を行う
 * 表示や時差など曖昧な場合の解釈は日本をベースにする
 * 操作対象者は、小学校４年生と想定
+* 機能別仕様
+** 月食
+Sun(date)->Here(mode)->Moon(period)
+date: 検索開始日
+mode: "world": Hereで見えない月食も表示する
+period: 検索年数
+
 * 以下は、実行例
 >>> Tz = 9 //初期値（デフォルト）は9とする
 UTCからの時差: +9

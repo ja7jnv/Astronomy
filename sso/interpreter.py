@@ -48,7 +48,6 @@ class VariableManager:
         Args:
             name: Body名
             value: 値
-            
         Returns:
             環境変数の場合は設定結果メッセージ、それ以外は値
         """
@@ -127,15 +126,13 @@ class ArrowOperationHandler:
         Returns:
             観測結果オブジェクトCelestialCalculator or EarthCalculator
         """
-        
-        print("")
 
         # パターン1: Observer -> Body : 標準パターン
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
             logger.debug("dispatch_pattern: 1. Observer -> Body")
 
             # ディフォルトの日付を取得
-            default_date = self.config.env["Time"]
+            default_date = self.config.env.get("Time", self.config.SSOEphem("now"))
 
             # Observer -> Body(date) で日付指定がある場合はdateを優先
             target_name = getattr(target, "name", "Body")
@@ -172,25 +169,31 @@ class ArrowOperationHandler:
                 return SSOCalculator.observe(obs, target, self.config, mode=mode)
             """
  
-        # パターン4: Body -> Observer : 月食の計算
+        # パターン4: Body -> Observer : 食の計算
+
+        # パターン4.1: Sun -> Observer -> Moon : 月食
         if isinstance(obs, ephem.Sun) and isinstance(target, ephem.Observer):
             logger.debug("dispatch_pattern: 4. Body -> Observer (eclipse)")
             earth = SSOEarth(target)
             earth.sun = obs
             earth.obs = target
-            earth.obs.date = self.config.env.get("Time", ephem.now())
+            s_date = self.var_mgr.observer.get("Sun", None)     # 検索開始日
+            if s_date is not None: earth.obs.date = s_date      # 指定がないときはTime、なければ現時刻
+            else: earth.obs.date = self.config.env.get("Time",self.config.SSOEphem("now"))
             return earth
-
+        #   ↑Sun -> Observer の処理（左結合）終えて
+        # ↓３項目の処理 -> Moon
         if isinstance(obs, SSOEarth) and isinstance(target, ephem.Moon):
             logger.debug(f"Lunar eclipse mode")
             obs.moon = target
-            period = self.var_mgr.observer.get("Moon",5)
-            res = obs.lunar_eclipse(period)     # 地球上で起きるすべての月食の日
+            period = int(self.var_mgr.observer.get("Moon",5))
+            place = self.var_mgr.observer.get("Here","")
+            res = obs.lunar_eclipse(period, place)
 
             # zip()関数を使って、dateとseparationを同時に取り出す
-            for d, s, stat in zip(res.get('date'), res.get('separation'), res.get('status')):
+            for d, s, a, stat, m in zip(res.get('date'), res.get('separation'), res.get('altitude'), res.get('status'), res.get('magnitude')):
                 d = self.config.fromUTC(d)
-                console.print(f"発生日: {f'{d}':<20}  離角: {s:.4f}, 状態: {stat}")
+                console.print(f"{f'{d}':<20}  離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}  食分:{m:.2f}")
 
             return res
 
@@ -234,11 +237,9 @@ class ArrowOperationHandler:
     def _calculate_separation(self, body1: ephem.Body, body2: ephem.Body) -> str:
         """
         2つの天体間の角距離を計算
-        
         Args:
             body1: 天体1
             body2: 天体2
-            
         Returns:
             角距離の文字列
         """
@@ -247,7 +248,8 @@ class ArrowOperationHandler:
         body1.compute(observer)
         body2.compute(observer)
         
-        # 角距離計算
+        # 角距離計算 TODO
+        #sep = self.config.SSOEphem("separation",body1, body2)
         sep = ephem.separation(body1, body2)
         
         result = f"角距離: {np.rad2deg(sep):.2f}°"
@@ -467,6 +469,7 @@ class SSOInterpreter(Interpreter):
                 # その他のephem関数
                 logger.debug(f"Set date of Body value: {func_name} <- {args[0]}")
                 self.var_mgr.observer[func_name] = args[0]
+                if func_name =="Here": return self.config.env.get("Here")
                 logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
                 return self.config.SSOEphem(func_name, *args)
     

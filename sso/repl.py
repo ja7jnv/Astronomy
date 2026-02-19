@@ -98,7 +98,8 @@ class SSOShell(cmd.Cmd):
         pass
 
     def reset_observation_environment(self):
-        self.interp.config.env['Time'] = self.interp.config.SSOEphem("now")
+        # TODO - なぜこの場所にTimeのリセットがあるのか？ とりあえず無効化
+        #self.interp.config.env['Time'] = self.interp.config.SSOEphem("now")
         self.interp.var_mgr.observer = {}
 
     def default(self, line):
