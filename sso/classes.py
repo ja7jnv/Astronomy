@@ -213,11 +213,17 @@ class SSOEarth:
         self.obs.pressure = Constants.ATMOSPHERIC_PRESSURE
         self.obs.temp = Constants.AVERAGE_TEMPERATURE
 
-    def lunar_eclipse(self, period: int) -> Any:
+#大阪市立科学館のWEBを参考に書き換える
+# http://www.sci-museum.kita.osaka.jp/~egoshi/astronomy/python/python_lunar_eclipse.html#:~:text=for%20x%20in%20range(0,(max_eclipse%5B1%5D))
+
+    def lunar_eclipse(self, period: int, place:str) -> Any:
         logger.debug(f"lunar_eclipse: date: {period}, obs={self.obs}, moon={self.moon}, sun={self.sun}")
-        date = []
-        separation = []
-        status = []
+        date        = []
+        separation  = []
+        altitude    = []
+        status      = []
+        magnitude   = []
+        is_world = (place == "world")       # 全地球での観測か？
 
         # 満月（月食候補）を調べる
         for i in range(period*12): # 調査年数periodに年間発生満月回数12を乗じる
@@ -230,21 +236,29 @@ class SSOEarth:
             # 太陽と月の離角を計算（ラジアン）
             # 月食は離角が180度（πラジアン）に近い時に起こる
             sep = ephem.separation(moon, sun)
-            diff_from_180 = abs(sep - math.pi)
+            s = abs(sep - math.pi)
+            mag = 0
             
             # 地球の影（本影＋半影）のサイズからして、
             # 約0.025ラジアン以内なら何らかの食が起きる
             scale_factor = Constants.LUNAR_ECLIPSE_SF   # 誤差許容値1.02
-            if diff_from_180 < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
+            if s < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
                 # その地点で月が地平線より上にあるか
                 if moon.alt > math.radians(Constants.MOONSET_ALTITUDE):
-                    stat = "皆既/部分食" if diff_from_180 < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
+                    stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
                     status.append(stat)
                     date.append(full_moon)
-                    separation.append(diff_from_180)
-                    logger.debug(f"lunar_eclipse: date={full_moon}, sep={diff_from_180}, status-{status}")
+                    separation.append(s)
+                    altitude.append(moon.alt)
+                    magnitude.append(mag)
+                    logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
 
-        return {"date": date, "separation": separation, "status": status}
+        return {"date": date,
+                "separation": separation,
+                "altitude": altitude,
+                "status": status,
+                "magnitude": magnitude
+                }
 
 
 from pygments.lexer import RegexLexer
