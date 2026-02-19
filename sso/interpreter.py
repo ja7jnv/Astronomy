@@ -193,7 +193,7 @@ class ArrowOperationHandler:
             # zip()関数を使って、dateとseparationを同時に取り出す
             for d, s, a, stat, m in zip(res.get('date'), res.get('separation'), res.get('altitude'), res.get('status'), res.get('magnitude')):
                 d = self.config.fromUTC(d)
-                console.print(f"{f'{d}':<20}  離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}  食分:{m:.2f}")
+                console.print(f"{f'{d}':<20}  離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}")
 
             return res
 

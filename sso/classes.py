@@ -225,26 +225,37 @@ class SSOEarth:
         magnitude   = []
         is_world = (place == "world")       # 全地球での観測か？
 
+        obs = ephem.Observer()              # 月食日を求めるためのObserver
+        obs.date = self.obs.date            # 観測地Observerのdateを代入
+        obs.elevation = -Constants.EARTH_RADIUS  # -6378137.0 地球中心
+        obs.pressure = 0
+        obs.temp =  0
+
         # 満月（月食候補）を調べる
         for i in range(period*12): # 調査年数periodに年間発生満月回数12を乗じる
-            full_moon = ephem.next_full_moon(self.obs.date)
-            self.obs.date = full_moon
+            full_moon = ephem.next_full_moon(obs.date)
+            obs.date = full_moon            # 月食日探索用Observerの日付更新
+            self.obs.date = full_moon       # 観測地Observerの日付更新
 
-            sun = ephem.Sun(self.obs)
-            moon = ephem.Moon(self.obs)
+            sun = ephem.Sun(obs)
+            moon = ephem.Moon(obs)
+            moon_here = ephem.Moon(self.obs)
 
             # 太陽と月の離角を計算（ラジアン）
             # 月食は離角が180度（πラジアン）に近い時に起こる
             sep = ephem.separation(moon, sun)
             s = abs(sep - math.pi)
+
+            # TODO - この条件、要検討　2027/02/21 半影月食のケース
+            is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
             mag = 0
             
             # 地球の影（本影＋半影）のサイズからして、
             # 約0.025ラジアン以内なら何らかの食が起きる
             scale_factor = Constants.LUNAR_ECLIPSE_SF   # 誤差許容値1.02
             if s < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
-                # その地点で月が地平線より上にあるか
-                if moon.alt > math.radians(Constants.MOONSET_ALTITUDE):
+                # その地点で月が観測地点の地平線より上にあるか
+                if is_world or is_moon_up:
                     stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
                     status.append(stat)
                     date.append(full_moon)
