@@ -172,14 +172,16 @@ class ArrowOperationHandler:
         # パターン4: Body -> Observer : 食の計算
 
         # パターン4.1: Sun -> Observer -> Moon : 月食
+        # 先ずは太陽から地球を見たオブジェクトを作成
         if isinstance(obs, ephem.Sun) and isinstance(target, ephem.Observer):
-            logger.debug("dispatch_pattern: 4. Body -> Observer (eclipse)")
+            logger.debug(f"dispatch_pattern: 4. Body -> Observer (eclipse)\ntarget:{target}")
             earth = SSOEarth(target)
             earth.sun = obs
             earth.obs = target
             s_date = self.var_mgr.observer.get("Sun", None)     # 検索開始日
             if s_date is not None: earth.obs.date = s_date      # 指定がないときはTime、なければ現時刻
             else: earth.obs.date = self.config.env.get("Time",self.config.SSOEphem("now"))
+            logger.debug(f"return: {earth.obs.date}")
             return earth
         #   ↑Sun -> Observer の処理（左結合）終えて
         # ↓３項目の処理 -> Moon
@@ -187,13 +189,25 @@ class ArrowOperationHandler:
             logger.debug(f"Lunar eclipse mode")
             obs.moon = target
             period = int(self.var_mgr.observer.get("Moon",5))
-            place = self.var_mgr.observer.get("Here","")
+            #place = self.var_mgr.observer.get("Here","")
+            place = next(iter(self.var_mgr.observer.values()), "here")
             res = obs.lunar_eclipse(period, place)
 
             # zip()関数を使って、dateとseparationを同時に取り出す
-            for d, s, a, stat, m in zip(res.get('date'), res.get('separation'), res.get('altitude'), res.get('status'), res.get('magnitude')):
+            for d, s, a, stat, mx, m, b, e in zip(
+                    res.get('date'),        # -> d
+                    res.get('separation'),  # -> s
+                    res.get('altitude'),    # -> a
+                    res.get('status'),      # -> stat
+                    res.get("max_time"),    # -> mx
+                    res.get('magnitude'),   # -> m
+                    res.get('begin_time'),  # -> b
+                    res.get('end_time')     # -> e
+                    ):
                 d = self.config.fromUTC(d)
-                console.print(f"{f'{d}':<20}  離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}")
+                console.print(f"観測日: {f'{d}'[:10]}  観測地: 緯度={str(obs.obs.lat)[:5]} 経度={str(obs.obs.lon)[:6]} 標高={obs.obs.elevation:.1f} m")
+                console.print(f"離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}")
+                console.print(f"欠け始め:{b}  終了:{e}  最大:{mx}  輝度:{m:.2f}\n")
 
             return res
 
@@ -285,13 +299,18 @@ class SSOInterpreter(Interpreter):
             ini = configparser.ConfigParser()
             ini.read('config.ini', encoding='utf-8')
             
-            # Here（観測地）の読み込み
+            # Earthの設定 - 地球の中心を設定
+            setattr(self.config.env['Earth'], "lat", 0)
+            setattr(self.config.env['Earth'], "lon", 0)
+            setattr(self.config.env['Earth'], "elevation", float(-Constants.EARTH_RADIUS))
+            
+            # Here（観測地）をconfig.iniから読み込んだ値に設定
             _observer_set('Here')
 
-            # Chokai（観測地：鳥海山）の読み込み
+            # Chokai（観測地：鳥海山）をconfig.iniから読み込んだ値に設定
             _observer_set('Chokai')
 
-            # 環境変数の設定
+            # 環境変数をconfig.iniから読み込んだ値に設定
             self.config.env['Tz'] = float(ini['ENV']['Tz'])
             self.config.env['Log'] = ini['ENV']['Log'].strip('"')
             self.config.env['Echo'] = ini['ENV']['Echo'].strip('"')
@@ -468,8 +487,10 @@ class SSOInterpreter(Interpreter):
             case _      :
                 # その他のephem関数
                 logger.debug(f"Set date of Body value: {func_name} <- {args[0]}")
-                self.var_mgr.observer[func_name] = args[0]
-                if func_name =="Here": return self.config.env.get("Here")
+                if func_name not in self.config.body:
+                    self.var_mgr.observer[func_name] = args[0]
+                    return self.config.env.get(func_name)
+
                 logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
                 return self.config.SSOEphem(func_name, *args)
     
