@@ -22,6 +22,34 @@ from rich.console import Console
 #console = Console(height=100)
 console = Console()
 
+from pygments.lexer import RegexLexer
+from pygments.token import Keyword, Name, String, Number, Operator, Punctuation, Comment, Text
+
+class SSOLexer(RegexLexer):
+    name = 'sso'
+
+    tokens = {
+        'root': [
+            # コメント (Lark: COMMENT)
+            (r'//.*', Comment.Single),
+            # 数値 (Lark: SIGNED_NUMBER)
+            (r'-?\d+\.?\d*([eE][+-]?\d+)?', Number),
+            # 文字列 (Lark: STRING)
+            (r'"[^"]*"|\'[^\']*\'', String),
+            # 演算子 (Lark: ->, +, -, *, /, ^, =)
+            (r'->|\+|-|\*|/|\^|=', Operator),
+            # 区切り文字
+            (r'[();,.]', Punctuation),
+            # BODY_NAME (大文字開始: クラスや天体イメージ)
+            (r'[A-Z][a-zA-Z0-9_]*', Name.Class),
+            # VAR_NAME (小文字開始: 変数イメージ)
+            (r'[a-z][a-zA-Z0-9_]*', Name.Variable),
+            # 空白
+            (r'\s+', Text),
+        ]
+    }
+
+
 # ===== 定数定義 =====
 class Constants:
     """定数クラス"""
@@ -50,6 +78,7 @@ class Constants:
     ANGLE_LUNAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
     LUNAR_ECLIPSE_SF = 1.02      # 計算誤差許容値
     LUNAR_ECLIPSE_PARTIAL = 0.018 # 半影食の限界値 0.015近辺で調整
+    LUNAR_ECLIPSE_SCALE_FACTOR = 51 / 50
 
     """予約語"""
     KEYWORD = ( "Sun",
@@ -105,6 +134,10 @@ class SSOSystemConfig:
             "Here"  : ephem.Observer(),
             "Chokai": ephem.Observer()
         }
+
+        # Ephemが標準でサポートしている太陽系の天体リスト（name: ３番目の要素）
+        self.body = [name for _0, _1, name in ephem._libastro.builtin_planets()]
+        #                     ^^^^^^ １番目と２番めの要素は無視
 
     @boolean_setter("Echo")
     def set_Echo(self, value):
@@ -218,11 +251,15 @@ class SSOEarth:
 
     def lunar_eclipse(self, period: int, place:str) -> Any:
         logger.debug(f"lunar_eclipse: date: {period}, obs={self.obs}, moon={self.moon}, sun={self.sun}")
+        config      = SSOSystemConfig()
         date        = []
         separation  = []
         altitude    = []
         status      = []
+        max_time    = []
         magnitude   = []
+        begin_time  = []
+        end_time    = []
         is_world = (place == "world")       # 全地球での観測か？
 
         obs = ephem.Observer()              # 月食日を求めるためのObserver
@@ -252,50 +289,91 @@ class SSOEarth:
             
             # 地球の影（本影＋半影）のサイズからして、
             # 約0.025ラジアン以内なら何らかの食が起きる
-            scale_factor = Constants.LUNAR_ECLIPSE_SF   # 誤差許容値1.02
+            scale_factor = Constants.LUNAR_ECLIPSE_SCALE_FACTOR   # 誤差許容値1.02
             if s < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
                 # その地点で月が観測地点の地平線より上にあるか
                 if is_world or is_moon_up:
+                    res = self.get_eclipse_time(obs.date)
                     stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
                     status.append(stat)
-                    date.append(full_moon)
+                    date.append(full_moon.datetime())
+                    #date.append(config.fromUTC(full_moon.datetime()))
                     separation.append(s)
                     altitude.append(moon.alt)
-                    magnitude.append(mag)
+                    max_time.append(res[0])
+                    magnitude.append(res[1])
+                    begin_time.append(res[2])
+                    end_time.append(res[3])
                     logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
 
         return {"date": date,
                 "separation": separation,
                 "altitude": altitude,
                 "status": status,
-                "magnitude": magnitude
+                "max_time": max_time,
+                "magnitude": magnitude,
+                "begin_time": begin_time,
+                "end_time": end_time
                 }
 
 
-from pygments.lexer import RegexLexer
-from pygments.token import Keyword, Name, String, Number, Operator, Punctuation, Comment, Text
+    def get_eclipse_time(self, initial_date: datetime) -> dict:
+        from operator import itemgetter
 
-class SSOLexer(RegexLexer):
-    name = 'sso'
+        obs = ephem.Observer()
+        obs.elevation = -Constants.EARTH_RADIUS 
+        obs.pressure = 0
+        obs.date = initial_date
 
-    tokens = {
-        'root': [
-            # コメント (Lark: COMMENT)
-            (r'//.*', Comment.Single),
-            # 数値 (Lark: SIGNED_NUMBER)
-            (r'-?\d+\.?\d*([eE][+-]?\d+)?', Number),
-            # 文字列 (Lark: STRING)
-            (r'"[^"]*"|\'[^\']*\'', String),
-            # 演算子 (Lark: ->, +, -, *, /, ^, =)
-            (r'->|\+|-|\*|/|\^|=', Operator),
-            # 区切り文字
-            (r'[();,.]', Punctuation),
-            # BODY_NAME (大文字開始: クラスや天体イメージ)
-            (r'[A-Z][a-zA-Z0-9_]*', Name.Class),
-            # VAR_NAME (小文字開始: 変数イメージ)
-            (r'[a-z][a-zA-Z0-9_]*', Name.Variable),
-            # 空白
-            (r'\s+', Text),
-        ]
-    }
+        sun = ephem.Sun()
+        moon = ephem.Moon()
 
+        res = []            # [時刻, 食分] のリスト
+        eclipse = []        # begin:, max:, end:, magnitude: の辞書型
+
+        # 1秒ずつ4時間分　計算繰り返し
+        for x in range(0, 15000):
+            # 時刻を1秒進める
+            obs.date = initial_date.datetime() + timedelta(seconds = x)
+
+            # 太陽・月の位置・半径計算
+            sun.compute(obs)
+            moon.compute(obs)
+            r_s = sun.size/2
+            r_m = moon.size/2
+
+            # 視差・本影の視半径計算
+            p_s = np.rad2deg(ephem.earth_radius / (sun.earth_distance * ephem.meters_per_au)) * 3600    # 度-> 秒
+            p_m = np.rad2deg(ephem.earth_radius / (moon.earth_distance * ephem.meters_per_au)) * 3600
+            R_u = (p_s + p_m - r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
+            R_p = (p_s + p_m + r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
+
+            # 月・地球の本影の角距離の計算
+            s = abs(np.rad2deg(ephem.separation(sun, moon)) - 180) * 3600
+
+            # 食分の計算
+            magnitude = (R_u + r_m - s) / (r_m * 2)
+
+            # 計算結果を追加（時刻、食分）
+            res.append([obs.date, magnitude])
+
+        # 食の最大の検索
+        max_eclipse = max(res, key=itemgetter(1))
+        max_date  = max_eclipse[0]
+        magnitude = max_eclipse[1]
+        begin_date = None
+        end_date = None
+
+        # 欠け始めと食の終わりの検索
+        eclipse = False
+        for x in res:
+            if x[1] > 0 :
+                if eclipse == False:
+                    begin_date = x[0]
+                    eclipse = True
+            else :
+                if eclipse == True:
+                    end_date = x[0]
+                    eclipse = False
+
+        return max_date, magnitude, begin_date, end_date
