@@ -194,20 +194,33 @@ class ArrowOperationHandler:
             res = obs.lunar_eclipse(period, place)
 
             # zip()関数を使って、dateとseparationを同時に取り出す
-            for d, s, a, stat, mx, m, b, e in zip(
+            for d, s, a, stat, x, m, b, e in zip(
                     res.get('date'),        # -> d
                     res.get('separation'),  # -> s
                     res.get('altitude'),    # -> a
                     res.get('status'),      # -> stat
-                    res.get("max_time"),    # -> mx
+                    res.get("max_time"),    # -> x
                     res.get('magnitude'),   # -> m
                     res.get('begin_time'),  # -> b
                     res.get('end_time')     # -> e
                     ):
-                d = self.config.fromUTC(d)
+                if d is not None: d = self.config.fromUTC(d)
+                if x is not None:
+                    x = self.config.fromUTC(x)
+                    px = x.split(' ')
+                    sx = f"{px[1]} {px[2]}"
+                if b is not None:
+                    b = self.config.fromUTC(b)
+                    pb = b.split(' ')
+                    sb = f"{pb[1]} {pb[2]}"
+                if e is not None:
+                    e = self.config.fromUTC(e)
+                    pe = e.split(' ')
+                    se = f"{pe[1]} {pe[2]}"
+                # TODO - 開始時刻の表示がおかしい
                 console.print(f"観測日: {f'{d}'[:10]}  観測地: 緯度={str(obs.obs.lat)[:5]} 経度={str(obs.obs.lon)[:6]} 標高={obs.obs.elevation:.1f} m")
                 console.print(f"離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}")
-                console.print(f"欠け始め:{b}  終了:{e}  最大:{mx}  輝度:{m:.2f}\n")
+                console.print(f"開始:{sb}  最大:{sx}  終了:{se}  輝度:{m:.2f}\n")
 
             return res
 
