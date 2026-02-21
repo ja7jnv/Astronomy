@@ -246,9 +246,6 @@ class SSOEarth:
         self.obs.pressure = Constants.ATMOSPHERIC_PRESSURE
         self.obs.temp = Constants.AVERAGE_TEMPERATURE
 
-#大阪市立科学館のWEBを参考に書き換える
-# http://www.sci-museum.kita.osaka.jp/~egoshi/astronomy/python/python_lunar_eclipse.html#:~:text=for%20x%20in%20range(0,(max_eclipse%5B1%5D))
-
     def lunar_eclipse(self, period: int, place:str) -> Any:
         logger.debug(f"lunar_eclipse: date: {period}, obs={self.obs}, moon={self.moon}, sun={self.sun}")
         config      = SSOSystemConfig()
@@ -262,13 +259,16 @@ class SSOEarth:
         end_time    = []
 
         def set_return_status():
-            stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
-            status.append(stat)
+            # stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
             date.append(full_moon.datetime())
             separation.append(s)
-            altitude.append(moon.alt)
+            altitude.append(math.degrees(moon_here.alt))
             max_time.append(res[0])
             magnitude.append(res[1])
+            if   res[1] >= 1.0: stat = "皆既食 🌑"
+            elif res[1] > 0   : stat = "部分食 🌘"
+            else              : stat = "半影食 🔴"
+            status.append(stat)
             begin_time.append(res[2])
             end_time.append(res[3])
             logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
@@ -305,6 +305,10 @@ class SSOEarth:
             scale_factor = Constants.LUNAR_ECLIPSE_SCALE_FACTOR   # 誤差許容値1.02
             if s < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
                 # その地点で月が観測地点の地平線より上にあるか
+                """ TODO
+                ここに各時刻を観測地moon_hereに代入して
+                高度、月の出入りを計算して以下の判定を実施
+                """
                 if is_world or is_moon_up:
                     res = self.get_eclipse_time(obs.date)
                     set_return_status()

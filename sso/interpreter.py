@@ -211,8 +211,8 @@ class ArrowOperationHandler:
 
                 # TODO - 開始時刻の表示がおかしい
                 console.print(f"観測日: {d}  観測地: 緯度={str(obs.obs.lat)[:5]} 経度={str(obs.obs.lon)[:6]} 標高={obs.obs.elevation:.1f} m")
-                console.print(f"開始:{sb}  最大:{sx}  終了:{se}  輝度:{m:.2f}")
-                console.print(f"離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}")
+                console.print(f"開始:{sb}  最大:{sx}  終了:{se}  最大食分:{m:.2f}")
+                console.print(f"離角:{s:.4f}  高度:{a:.2f}°  状態:{stat}")
                 console.print("")
 
             return res
