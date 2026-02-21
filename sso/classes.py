@@ -76,9 +76,9 @@ class Constants:
     MOONSET_ALTITUDE = -1.2      # 月没判断高度 -1.2度
     LUNAR_CYCLE = 29.53          # 月の周期
     ANGLE_LUNAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
-    LUNAR_ECLIPSE_SF = 1.02      # 計算誤差許容値
     LUNAR_ECLIPSE_PARTIAL = 0.018 # 半影食の限界値 0.015近辺で調整
-    LUNAR_ECLIPSE_SCALE_FACTOR = 51 / 50
+    LUNAR_ECLIPSE_SF = 1.02      # 計算誤差許容値
+    LUNAR_ECLIPSE_SCALE_FACTOR = 51 / 50    # ↑と同じ？
 
     """予約語"""
     KEYWORD = ( "Sun",
@@ -260,13 +260,28 @@ class SSOEarth:
         magnitude   = []
         begin_time  = []
         end_time    = []
-        is_world = (place == "world")       # 全地球での観測か？
+
+        def set_return_status():
+            stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
+            status.append(stat)
+            date.append(full_moon.datetime())
+            separation.append(s)
+            altitude.append(moon.alt)
+            max_time.append(res[0])
+            magnitude.append(res[1])
+            begin_time.append(res[2])
+            end_time.append(res[3])
+            logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
+        ### set_return_status():
+        ### end of def
 
         obs = ephem.Observer()              # 月食日を求めるためのObserver
         obs.date = self.obs.date            # 観測地Observerのdateを代入
         obs.elevation = -Constants.EARTH_RADIUS  # -6378137.0 地球中心
         obs.pressure = 0
         obs.temp =  0
+
+        is_world = (place == "world")       # 全地球での観測か？
 
         # 満月（月食候補）を調べる
         for i in range(period*12): # 調査年数periodに年間発生満月回数12を乗じる
@@ -285,8 +300,6 @@ class SSOEarth:
 
             # TODO - この条件、要検討　2027/02/21 半影月食のケース
             is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
-            mag = 0
-            
             # 地球の影（本影＋半影）のサイズからして、
             # 約0.025ラジアン以内なら何らかの食が起きる
             scale_factor = Constants.LUNAR_ECLIPSE_SCALE_FACTOR   # 誤差許容値1.02
@@ -294,17 +307,7 @@ class SSOEarth:
                 # その地点で月が観測地点の地平線より上にあるか
                 if is_world or is_moon_up:
                     res = self.get_eclipse_time(obs.date)
-                    stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
-                    status.append(stat)
-                    date.append(full_moon.datetime())
-                    #date.append(config.fromUTC(full_moon.datetime()))
-                    separation.append(s)
-                    altitude.append(moon.alt)
-                    max_time.append(res[0])
-                    magnitude.append(res[1])
-                    begin_time.append(res[2])
-                    end_time.append(res[3])
-                    logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
+                    set_return_status()
 
         return {"date": date,
                 "separation": separation,
@@ -317,13 +320,14 @@ class SSOEarth:
                 }
 
 
+    # TODO 時間探索を観測地で実施する必要あり
     def get_eclipse_time(self, initial_date: datetime) -> dict:
         from operator import itemgetter
 
         obs = ephem.Observer()
         obs.elevation = -Constants.EARTH_RADIUS 
         obs.pressure = 0
-        obs.date = initial_date
+        start_date = ephem.Date(initial_date - (2 * ephem.hour)) # 満月時刻から２時間前
 
         sun = ephem.Sun()
         moon = ephem.Moon()
@@ -334,7 +338,7 @@ class SSOEarth:
         # 1秒ずつ4時間分　計算繰り返し
         for x in range(0, 15000):
             # 時刻を1秒進める
-            obs.date = initial_date.datetime() + timedelta(seconds = x)
+            obs.date = start_date.datetime() + timedelta(seconds = x)
 
             # 太陽・月の位置・半径計算
             sun.compute(obs)

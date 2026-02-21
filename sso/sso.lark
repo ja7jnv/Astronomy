@@ -15,6 +15,7 @@ assignment: VAR_NAME "=" expr  -> assign_var
      | VAR_NAME         -> var_load
      | BODY_NAME        -> body_load
      | funccall
+     | auxcall
      | "(" expr ")"
 	 | dot_access
 
@@ -22,6 +23,7 @@ dot_access: VAR_NAME "." VAR_NAME
           | dot_access "." VAR_NAME
 
 funccall: (BODY_NAME | VAR_NAME) "(" [arglist] ")"
+auxcall: (BODY_NAME | VAR_NAME) "[" [arglist] "]"
 arglist: expr ("," expr)*
 
 VAR_NAME: /[a-z][a-zA-Z0-9_]*/
