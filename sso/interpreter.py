@@ -193,7 +193,7 @@ class ArrowOperationHandler:
             place = next(iter(self.var_mgr.observer.values()), "here")
             res = obs.lunar_eclipse(period, place)
 
-            # zip()関数を使って、dateとseparationを同時に取り出す
+            # zip()関数を使って同時に取り出す
             for d, s, a, stat, x, m, b, e in zip(
                     res.get('date'),        # -> d
                     res.get('separation'),  # -> s
@@ -205,24 +205,24 @@ class ArrowOperationHandler:
                     res.get('end_time')     # -> e
                     ):
                 if d is not None: d = self.config.fromUTC(d)
-                if x is not None:
-                    x = self.config.fromUTC(x)
-                    px = x.split(' ')
-                    sx = f"{px[1]} {px[2]}"
-                if b is not None:
-                    b = self.config.fromUTC(b)
-                    pb = b.split(' ')
-                    sb = f"{pb[1]} {pb[2]}"
-                if e is not None:
-                    e = self.config.fromUTC(e)
-                    pe = e.split(' ')
-                    se = f"{pe[1]} {pe[2]}"
+                sx = self._split_date(x)
+                sb = self._split_date(b)
+                se = self._split_date(e)
+
                 # TODO - 開始時刻の表示がおかしい
-                console.print(f"観測日: {f'{d}'[:10]}  観測地: 緯度={str(obs.obs.lat)[:5]} 経度={str(obs.obs.lon)[:6]} 標高={obs.obs.elevation:.1f} m")
+                console.print(f"観測日: {d}  観測地: 緯度={str(obs.obs.lat)[:5]} 経度={str(obs.obs.lon)[:6]} 標高={obs.obs.elevation:.1f} m")
+                console.print(f"開始:{sb}  最大:{sx}  終了:{se}  輝度:{m:.2f}")
                 console.print(f"離角:{s:.4f}  高度:{a:+7.4f}  状態:{stat}")
-                console.print(f"開始:{sb}  最大:{sx}  終了:{se}  輝度:{m:.2f}\n")
+                console.print("")
 
             return res
+
+    def _split_date(self, val):
+        if val is None:
+            return None
+        val = self.config.fromUTC(val)
+        p = val.split(' ')
+        return f"{p[1]} {p[2]}"
 
         
         # 未対応パターン
@@ -444,6 +444,8 @@ class SSOInterpreter(Interpreter):
         name = tree.children[0].value
         return self.var_mgr.get_body(name)
     
+
+    # ===== command呼び出し ===== TODO - 現時点で未実装
     def cmdcall(self, tree) -> Any:
         # コマンド形式の呼び出し
         attr = tree.children[0].value
@@ -466,6 +468,23 @@ class SSOInterpreter(Interpreter):
                 print(f"command - eclipse: {args}")
                 return
 
+    # ===== 補助呼び出し ===== 2026.2.21追加
+    def auxcall(self, tree) -> Any:
+        aux_name = tree.children[0].value
+        logger.debug(f"auxcall: {aux_name}")
+        
+        # 引数の処理
+        args = []
+        if len(tree.children) > 1:
+            child = tree.children[1]
+            if hasattr(child, 'data'):
+                args = self.visit(child)
+
+                logger.debug(f"Set auxiliary data of Body: {aux_name} <- {args[0]}")
+                self.var_mgr.observer[aux_name] = args[0]
+                return self.var_mgr.get_body(aux_name)
+
+        
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
         attr = tree.children[0].value
@@ -482,6 +501,7 @@ class SSOInterpreter(Interpreter):
         return self._dispatch_function(attr, args)
     
     def _dispatch_function(self, func_name: str, args: List[Any]) -> Any:
+        logger.debug(f"_dispatch_function: func_name={func_name}")
         match func_name:
             case "Date": return self._handle_date_function(args)
             case "UTC" : return self._handle_utc_function(args)
@@ -499,11 +519,6 @@ class SSOInterpreter(Interpreter):
             case "Print": return console.print(args)
             case _      :
                 # その他のephem関数
-                logger.debug(f"Set date of Body value: {func_name} <- {args[0]}")
-                if func_name not in self.config.body:
-                    self.var_mgr.observer[func_name] = args[0]
-                    return self.config.env.get(func_name)
-
                 logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
                 return self.config.SSOEphem(func_name, *args)
     

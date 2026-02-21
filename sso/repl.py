@@ -1,5 +1,3 @@
-# TODO - 入力補完 (Autocompletion): Earth や Moon などのキーワードを途中まで打ったら補完候補を出す。
-
 import logging # ログの設定
 logging.basicConfig(
 level=logging.WARNING, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
