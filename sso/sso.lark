@@ -1,5 +1,11 @@
 start: statement*
-?statement: (assignment | expr) (";" | NEWLINE) | NEWLINE
+
+?statement: (assignment | expr | if_stmt | for_stmt) (";" | NEWLINE) | NEWLINE
+
+if_stmt: "if" expr "then" block ["else" block] "endif"
+for_stmt: "for" VAR_NAME "in" expr "do" block "endfor"
+
+block: statement+
 
 assignment: VAR_NAME "=" expr  -> assign_var
           | BODY_NAME "=" expr  -> assign_body
