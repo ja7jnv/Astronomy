@@ -24,9 +24,12 @@ assignment: VAR_NAME "=" expr  -> assign_var
      | auxcall
      | "(" expr ")"
 	 | dot_access
+#	 | comparison
 
 dot_access: VAR_NAME "." VAR_NAME
           | dot_access "." VAR_NAME
+
+#comparison: expr (">" | "<" | "==") expr
 
 funccall: (BODY_NAME | VAR_NAME) "(" [arglist] ")"
 auxcall: (BODY_NAME | VAR_NAME) "[" [arglist] "]"

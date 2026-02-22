@@ -265,9 +265,9 @@ class SSOEarth:
             altitude.append(math.degrees(moon_here.alt))
             max_time.append(res[0])
             magnitude.append(res[1])
-            if   res[1] >= 1.0: stat = "皆既食 🌑"
+            if   res[1] >= 1.0: stat = "皆既食 🔴"
             elif res[1] > 0   : stat = "部分食 🌘"
-            else              : stat = "半影食 🔴"
+            else              : stat = "半影食 🌕"
             status.append(stat)
             begin_time.append(res[2])
             end_time.append(res[3])
@@ -368,7 +368,7 @@ class SSOEarth:
         # 食の最大の検索
         max_eclipse = max(res, key=itemgetter(1))
         max_date  = max_eclipse[0]
-        magnitude = max_eclipse[1]
+        magnitude = max(0, max_eclipse[1])
         begin_date = None
         end_date = None
 
