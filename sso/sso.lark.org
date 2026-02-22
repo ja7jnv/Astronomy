@@ -2,13 +2,12 @@ start: statement*
 
 ?statement: (assignment | expr | if_stmt | for_stmt) (";" | NEWLINE) | NEWLINE
 
-if_stmt: "if" condition "then" block ["else" block] "endif"
-for_stmt: "for" VAR_NAME "in" condition "do" block "endfor"
+if_stmt: "if" expr "then" block ["else" block] "endif"
+for_stmt: "for" VAR_NAME "in" expr "do" block "endfor"
+
 block: statement+
 
-?condition: comparison | expr
-
-assignment: VAR_NAME "=" condition  -> assign_var
+assignment: VAR_NAME "=" expr  -> assign_var
           | BODY_NAME "=" expr  -> assign_body
 
 ?expr: arrow
@@ -25,11 +24,12 @@ assignment: VAR_NAME "=" condition  -> assign_var
      | auxcall
      | "(" expr ")"
 	 | dot_access
+#	 | comparison
 
 dot_access: VAR_NAME "." VAR_NAME
           | dot_access "." VAR_NAME
 
-comparison: expr (">" | "<" | "==") expr
+#comparison: expr (">" | "<" | "==") expr
 
 funccall: (BODY_NAME | VAR_NAME) "(" [arglist] ")"
 auxcall: (BODY_NAME | VAR_NAME) "[" [arglist] "]"
@@ -41,15 +41,7 @@ STRING: /"[^"]*"/ | /'[^']*'/
 COMMENT: "//" /[^\n]/*
 
 %import common.SIGNED_NUMBER
-
-# 空白無視を「改行を含まない空白」に限定する
-%import common.WS_INLINE
-%ignore WS_INLINE
-
-# 改行は明示的に扱う
+%import common.WS
 %import common.NEWLINE
-
-# %import common.WS
-# %ignore WS
-
+%ignore WS
 %ignore COMMENT
