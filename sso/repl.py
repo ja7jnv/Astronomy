@@ -5,14 +5,15 @@ format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger =  logging.getLogger(__name__)
 
+# 基幹部分の外部システムをインポート
 import sys
 import cmd
 import ephem
 import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
-from interpreter import SSOInterpreter
-from classes import SSOSystemConfig, SSOLexer
-from classes import console
+from lark.exceptions import UnexpectedToken, UnexpectedEOF
+
+# 以下、見栄えを改善するための外部システムのインポート
 
 # 入力中のコマンドにシンタックスハイライト
 from prompt_toolkit import PromptSession
@@ -43,6 +44,11 @@ style = Style.from_dict({
 from rich.console import Console
 from rich.panel import Panel
 
+# プロジェクト内のクラスのインポート
+from interpreter import SSOInterpreter
+from classes import SSOSystemConfig, SSOLexer
+from classes import console
+
 class SSOShell(cmd.Cmd):
     # prompt_toolkitで使うためのHTMLタグ付きプロンプト
     # <style名>テキスト</style名> の形式で記述
@@ -53,10 +59,11 @@ class SSOShell(cmd.Cmd):
 [bold magenta]SSO Celestial Navigation System[/bold magenta] [dim]v1.0[/dim]
 [cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
     """
-    prompt = "sso> "
+    continue_prompt = "... "
 
     def __init__(self):
         super().__init__()
+        self.code_buffer = ""
         
         # 入力ハイライト用のセッション
         self.session = PromptSession(
@@ -77,19 +84,25 @@ class SSOShell(cmd.Cmd):
             sys.exit(1)
 
 
-    def cmdloop(self, intro=None):
+
+    def cmdloop(self, intro=None):  # 標準のcmdloopを書き換える
         #print(intro or "DSL Shell Started. (Ctrl+D to exit)")
         # 標準のイントロ表示をスキップし、Richで表示
         console.print(Panel(self.intro_text, border_style="blue"))
         while True:
             try:
-                # 入力中のハイライト適用
-                #text = self.session.prompt(self.prompt)
-                text = self.session.prompt(self.colored_prompt, reserve_space_for_menu=0)
-                if text.strip():
-                    self.onecmd(text)
+                if self.code_buffer:
+                    text = self.session.prompt(self.continue_prompt)
+                else:
+                    text = self.session.prompt(self.colored_prompt, reserve_space_for_menu=0)
             except EOFError: break
             except KeyboardInterrupt: continue
+
+            self.code_buffer += text + "\n"
+
+            if self.code_buffer.strip():
+                self.onecmd(self.code_buffer)
+
 
     def emptyline(self):
         # 何もしないように上書き（これがないと直前のコマンドが走る）
@@ -101,6 +114,7 @@ class SSOShell(cmd.Cmd):
         self.interp.var_mgr.observer = {}
 
     def default(self, line):
+        self.code_buffer += line + "\n"
         if not line.strip():
             return
         try:
@@ -120,14 +134,18 @@ class SSOShell(cmd.Cmd):
             self.reset_observation_environment()
 
             # パースを実行（末尾に改行を付けて文末を認識させる）
-            tree = self.parser.parse(line + "\n")
+            #tree = self.parser.parse(line + "\n")
+            tree = self.parser.parse(self.code_buffer)
 
             # 慣れるまで、解析木を表示する
             logger.debug(tree.pretty())
 
+
             # visit(tree) を実行。結果は通常 [結果1, Token, 結果2...] のリストで返る
             results = self.interp.visit(tree)
             logger.info(results)
+
+            self.code_buffer = ""  # 1 statement の処理終了でcode_buffer クリア
 
             # 表示処理。結果が単一でもリストでも対応できるようにする
             if not isinstance(results, list):
@@ -158,8 +176,25 @@ class SSOShell(cmd.Cmd):
                             case _:
                                 pass
 
+        except UnexpectedToken as e:
+            if e.token.type == '$END':
+                # 入力がまだ途中の場合（if文の途中など）は、次の行を待つ
+                # continue
+                pass
+            else:
+                # 本当の文法エラーの場合は表示してバッファをリセット
+                print(f"Syntax Error: {e}")
+                code_buffer = ""
+
+        except UnexpectedEOF:
+            # Larkのバージョンや設定によっては UnexpectedEOF が発生する
+            # こちらもキャッチして継続
+            # continue
+            pass
+
         except Exception as e:
             print(f"Error: {e}")
+            code_buffer = ""
 
     # --- シェル制御コマンド ---
     def do_hello(self, arg):
