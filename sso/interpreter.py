@@ -174,7 +174,7 @@ class ArrowOperationHandler:
         # パターン4.1: Sun -> Observer -> Moon : 月食
         # 先ずは太陽から地球を見たオブジェクトを作成
         if isinstance(obs, ephem.Sun) and isinstance(target, ephem.Observer):
-            logger.debug(f"dispatch_pattern: 4. Body -> Observer (eclipse)\ntarget:{target}")
+            logger.debug(f"dispatch_pattern: 4. Body -> Observer (lunar eclipse)\ntarget:{target}")
             earth = SSOEarth(target)
             earth.sun = obs
             earth.obs = target
@@ -224,6 +224,31 @@ class ArrowOperationHandler:
         p = val.split(' ')
         return f"{p[1]} {p[2]}"
 
+### 以下日食 ###
+
+        # パターン4.2: Observer -> Moon -> Sun: 日食
+        # 先ずは太陽から地球を見たオブジェクトを作成
+        if isinstance(obs, SSOEarth) and isinstance(target, ephem.moon):
+            logger.debug(f"dispatch_pattern: 4. Observer -> Body (solar eclipse)\ntarget:{target}")
+            earth = SSOEarth(target)
+            earth.sun = obs
+            earth.obs = target
+            s_date = self.var_mgr.observer.get("Sun", None)     # 検索開始日
+            if s_date is not None: earth.obs.date = s_date      # 指定がないときはTime、なければ現時刻
+            else: earth.obs.date = self.config.env.get("Time",self.config.SSOEphem("now"))
+            logger.debug(f"return: {earth.obs.date}")
+            return earth
+        #   ↑Observer -> Moon の処理（左結合）終えて
+        # ↓３項目の処理 -> Sun
+        if isinstance(obs, ephem.moon) and isinstance(target, ephem.Sun):
+            logger.debug(f"Solar eclipse mode")
+            """
+            日食処理
+            """
+            res = 0
+            console.print("処理ロジックは未")
+
+            return res
         
         # 未対応パターン
         logger.debug(f"dispatch_pattern: Undefine:\nobs:{obs}\ntarget:{target}")
