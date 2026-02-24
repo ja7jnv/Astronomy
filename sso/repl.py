@@ -50,7 +50,7 @@ class SSOShell(cmd.Cmd):
 
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
     intro_text = """
-[bold magenta]SSO Celestial Navigation System[/bold magenta] [dim]v1.0[/dim]
+[bold magenta]SSO Celestial Navigation System[/bold magenta] [dim]v0.1[/dim]
 [cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
     """
     prompt = "sso> "
