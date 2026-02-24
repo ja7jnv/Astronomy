@@ -212,7 +212,7 @@ class ArrowOperationHandler:
                 # TODO - 開始時刻の表示がおかしい
                 console.print(f"観測日: {d}  観測地: 緯度={str(obs.obs.lat)[:5]} 経度={str(obs.obs.lon)[:6]} 標高={obs.obs.elevation:.1f} m")
                 console.print(f"部分食開始:{sb}  最大食:{sx}  部分食終了:{se}")
-                console.print(f"状態:{stat}  最大食分:{m:.3f}  高度:{a:.2f}°  離角:{s:.4f}")
+                console.print(f"状態:{stat}  最大食分:{m:.3f}  高度:{a:.2f}°  離角:{s:.4f}°")
                 console.print("")
 
             return res
