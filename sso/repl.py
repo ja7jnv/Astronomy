@@ -7,7 +7,10 @@ logger =  logging.getLogger(__name__)
 
 import sys
 import cmd
+import os
 import ephem
+from datetime import datetime
+
 import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
 from interpreter import SSOInterpreter
@@ -152,7 +155,13 @@ class SSOShell(cmd.Cmd):
                         match res:
                             case ephem.Date():
                                 # <class 'ephem.Date'> なら Tz を加算する
-                                print(f"{self.interp.config.fromUTC(res)}")
+                                date_str=f"{self.interp.config.fromUTC(res)}"
+                                base_part = date_str[:19]
+                                tz_part = date_str[20:]
+                                dt = datetime.strptime(base_part, "%Y/%m/%d %H:%M:%S")
+                                weekday = dt.strftime("%a").upper()
+                                formatted_str = f"{date_str[:10]} ({weekday}) {date_str[10:]}"
+                                console.print(formatted_str)
                             case float() | str() | int():
                                 console.print(res)
                             case _:
@@ -162,6 +171,15 @@ class SSOShell(cmd.Cmd):
             print(f"Error: {e}")
 
     # --- シェル制御コマンド ---
+    def do_shell(self, line):
+        """! <command> : OSのシェルコマンドを実行する"""
+        if not line:
+            console.print("コマンドを入力してください")
+            return
+
+        # os.system を使用して、入力されたコマンドを直接実行
+        os.system(line)
+
     def do_hello(self, arg):
         print(f"Hello {arg}!")
 

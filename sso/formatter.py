@@ -105,7 +105,7 @@ m       """
         if body_name == "月":
             age = position_data.get("age", 15.0)
             phase = self._get_moon_phase(age)
-            lines.append(f"月齢  : {f'{age:.2f}':<9}  月の形: {phase} [観測時]")
+            lines.append(f"月齢  : {f'{age:.2f}':<9}  月の形: {phase}  [観測時]")
             lines.append(f"輝面比: {f'{position_data['phase']:.2f} %':<9}")
         if body_name in ("月", "太陽"):
             lines.append(f"視直径: {f'{position_data['diameter']:.2f} arcmin':<9}  {arcmin}")
@@ -180,7 +180,7 @@ m       """
 
         if body_name == "月":
             phase = self._get_moon_phase(age)
-            lines.append(f"月齢      : {age:.1f}     月の形: {phase} [正午]")
+            lines.append(f"月齢      : {age:.1f}     月の形: {phase}  [正午]")
 
         return "\n".join(lines)
     

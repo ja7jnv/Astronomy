@@ -10,7 +10,19 @@ sso_completer = WordCompleter([
     'Saturn',
     'Uranus',
     'Neptune',
-    'Pluto'
+    'Pluto',
+    ### ephem function ###
+    'previous_new_moon', 'next_new_moon',
+    'previous_first_quarter_moon', 'next_first_quarter_moon',
+    'previous_full_moon', 'next_full_moon',
+    'previous_last_quarter_moon', 'next_last_quarter_moon',
+    'previous_solstice', 'next_solstice',
+    'previous_summer_solstice', 'next_summer_solstice',
+    'previous_winter_solstice', 'next_winter_solstice',
+    'previous_equinox', 'next_equinox',
+    'previous_vernal_equinox', 'next_vernal_equinox',
+    'previous_autumnal_equinox', 'next_autumnal_equinox',
+    'city', 'delta_t', 'julian_date', 'degrees', 'hours'
 ], ignore_case=True) # 大文字小文字を区別しない設定
 
 """
