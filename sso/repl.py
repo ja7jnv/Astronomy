@@ -89,24 +89,34 @@ class SSOShell(cmd.Cmd):
         #print(intro or "DSL Shell Started. (Ctrl+D to exit)")
         # 標準のイントロ表示をスキップし、Richで表示
         console.print(Panel(self.intro_text, border_style="blue"))
+        self.code_buffer = ""
         while True:
+            logger.debug(f"start parser code_buffer:{self.code_buffer}")
+            if self.code_buffer == "\n": self.code_buffer = ""
             try:
                 if self.code_buffer:
-                    text = self.session.prompt(self.continue_prompt)
+                    prompt = self.continue_prompt
                 else:
-                    text = self.session.prompt(self.colored_prompt, reserve_space_for_menu=0)
-            except EOFError: break
+                    prompt = self.colored_prompt
+                text = self.session.prompt(prompt, reserve_space_for_menu=0)
+            except EOFError:
+                logger.debug(f"text: {text}")
+                break
             except KeyboardInterrupt: continue
 
             self.code_buffer += text + "\n"
-
+            logger.debug(f"code_buffer:\n*start_sentence*\n{self.code_buffer}*end_sentence*")
             if self.code_buffer.strip():
-                self.onecmd(self.code_buffer)
+                logger.debug(f"Evaluate code_buffer:\n**BEGIN**\n{self.code_buffer}**END**")
+                #self.onecmd(self.code_buffer)
+
+                stop = self.onecmd(text)
 
 
     def emptyline(self):
         # 何もしないように上書き（これがないと直前のコマンドが走る）
-        pass
+        logger.debug("emptyline")
+        #pass
 
     def reset_observation_environment(self):
         # TODO - なぜこの場所にTimeのリセットがあるのか？ とりあえず無効化
@@ -114,7 +124,7 @@ class SSOShell(cmd.Cmd):
         self.interp.var_mgr.observer = {}
 
     def default(self, line):
-        self.code_buffer += line + "\n"
+        logger.debug(f"default: line={line}")
         if not line.strip():
             return
         try:
@@ -136,6 +146,7 @@ class SSOShell(cmd.Cmd):
             # パースを実行（末尾に改行を付けて文末を認識させる）
             #tree = self.parser.parse(line + "\n")
             tree = self.parser.parse(self.code_buffer)
+            self.code_buffer = ""
 
             # 慣れるまで、解析木を表示する
             logger.debug(tree.pretty())
@@ -145,7 +156,6 @@ class SSOShell(cmd.Cmd):
             results = self.interp.visit(tree)
             logger.info(results)
 
-            self.code_buffer = ""  # 1 statement の処理終了でcode_buffer クリア
 
             # 表示処理。結果が単一でもリストでも対応できるようにする
             if not isinstance(results, list):
@@ -153,6 +163,7 @@ class SSOShell(cmd.Cmd):
                 # 「リストの強要」というテクニックらしい
 
             for res in results:
+                logger.debug(f"res:{res}")
                 # Token(改行等)は無視
                 if isinstance(res, Token):
                     continue
@@ -162,7 +173,8 @@ class SSOShell(cmd.Cmd):
                     for sub_res in res:
                         if not isinstance(sub_res, Token) and sub_res is not None:
                             if self.interp.config.env["Echo"] == "Yes":
-                                print(sub_res)
+                                logger.debug(f"sub_res:{sub_res}")
+                                console.print(sub_res)
                 else:
                     # 通常の出力
                     if res is not None and (self.interp.config.env["Echo"] == "Yes"):
@@ -198,6 +210,7 @@ class SSOShell(cmd.Cmd):
 
     # --- シェル制御コマンド ---
     def do_hello(self, arg):
+        self.code_buffer =""
         print(f"Hello {arg}!")
 
     def do_exit(self, arg):
@@ -212,6 +225,7 @@ class SSOShell(cmd.Cmd):
     def do_EOF(self, arg):
         print()
         return True
+
 
 if __name__ == "__main__":
     try:
