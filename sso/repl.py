@@ -8,6 +8,7 @@ logger =  logging.getLogger(__name__)
 # 基幹部分の外部システムをインポート
 import sys
 import cmd
+import unicodedata
 import os
 import ephem
 from datetime import datetime
@@ -20,6 +21,7 @@ from lark.exceptions import UnexpectedToken, UnexpectedEOF
 from interpreter import SSOInterpreter
 from classes import SSOSystemConfig, SSOLexer
 from classes import console
+from ssohelp import Body_help
 
 # 以下、見栄えを改善するための外部システムのインポート
 
@@ -53,6 +55,12 @@ from rich.console import Console
 from rich.panel import Panel
 
 class SSOShell(cmd.Cmd):
+    ## ここでHelpの見出しをカスタマイズ
+    misc_header = "その他のガイド・解説:"
+    doc_header = "実行可能なコマンド一覧:"
+    undoc_header = "ヘルプ未作成のコマンド:"
+    #ruler = "-"  # 見出しの下の線を「-」に変更（デフォルトは「=」）
+
     # prompt_toolkitで使うためのHTMLタグ付きプロンプト
     # <style名>テキスト</style名> の形式で記述
     colored_prompt = HTML('<ansicyan>sso</ansicyan><ansigray>></ansigray> ')
@@ -256,6 +264,24 @@ class SSOShell(cmd.Cmd):
     def do_EOF(self, arg):
         print()
         return True
+
+    def help_Moon(self):
+        """ これはDocstring のMoon """
+        print("【Moonトピックの本文】")
+        print("ここには月に関する詳細な説明を記載できます。")
+        print("コマンドではありませんが、ガイドとして表示されます。")
+        print(Body_help.get("Moon"))
+
+    def print_topics(self, header, cmds, cmdlen, maxcol):
+        if cmds:
+            self.stdout.write("%s\n" % str(header))
+            if self.ruler:
+                # 日本語の幅（全角2, 半角1）を計算して下線を引く
+                header_width = sum([(2 if unicodedata.east_asian_width(c) in 'FWA' else 1) for c in header])
+                self.stdout.write("%s\n" % (self.ruler * header_width))
+            self.columnize(cmds, maxcol)
+            self.stdout.write("\n")
+
 
 if __name__ == "__main__":
     try:
