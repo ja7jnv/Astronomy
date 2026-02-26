@@ -196,7 +196,7 @@ class SSOShell(cmd.Cmd):
             else:
                 # 本当の文法エラーの場合は表示してバッファをリセット
                 print(f"Syntax Error: {e}")
-                code_buffer = ""
+                self.code_buffer = ""
 
         except UnexpectedEOF:
             # Larkのバージョンや設定によっては UnexpectedEOF が発生する
@@ -206,7 +206,7 @@ class SSOShell(cmd.Cmd):
 
         except Exception as e:
             print(f"Error: {e}")
-            code_buffer = ""
+            self.code_buffer = ""
 
     # --- シェル制御コマンド ---
     def do_hello(self, arg):
