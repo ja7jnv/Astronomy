@@ -59,7 +59,7 @@ class SSOShell(cmd.Cmd):
 
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
     intro_text = """
-[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]v0.1[/dim]
+[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]機能確認版 V0.1[/dim]
 
     [cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
 
@@ -117,6 +117,7 @@ class SSOShell(cmd.Cmd):
                 #self.onecmd(self.code_buffer)
 
                 stop = self.onecmd(text)
+                self.postcmd(stop, text)
 
     # 実行直後に呼ばれる
     def postcmd(self, stop, line):
@@ -202,7 +203,7 @@ class SSOShell(cmd.Cmd):
                                 console.print(res)
                             case ephem.Observer():
                                 console.print(f"観測地オブジェクト:")
-                                console.print(f"date={self.interp.config.fromUTC(res.date)}  緯度={res.lat}  経度={res.lon}  標高={res.elevation}")
+                                console.print(f"date={self.interp.config.fromUTC(res.date)}  緯度={res.lat}  経度={res.lon}  標高={res.elevation:.1f}")
                             case ephem.Body():
                                 console.print(f"天体オブジェクト:\n{res}")
                             case _:
