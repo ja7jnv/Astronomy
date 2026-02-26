@@ -2,34 +2,50 @@ start: statement*
 
 ?statement: (assignment | expr | if_stmt | for_stmt) (";" | NEWLINE) | NEWLINE
 
-if_stmt: "if" condition "then" block ["else" block] "endif"
-for_stmt: "for" VAR_NAME "in" condition "do" block "endfor"
+if_stmt: "if" expr "then" block ["else" block] "endif"
+for_stmt: "for" VAR_NAME "in" expr "do" block "endfor"
 block: statement+
 
-?condition: comparison | expr
+// --- 論理演算・比較演算の階層 ---
+// 下に行くほど結合が強くなる
 
-assignment: VAR_NAME "=" condition  -> assign_var
-          | BODY_NAME "=" expr  -> assign_body
+?expr: logical_or
 
-?expr: arrow
+?logical_or: logical_and
+           | logical_or "OR" logical_and  -> or_op
+
+?logical_and: logical_not
+            | logical_and "AND" logical_not -> and_and
+
+?logical_not: "NOT" logical_not -> not_op
+            | comparison
+
+?comparison: arrow (">" | "<" | "==" | "!=") arrow -> compare_op
+           | arrow
+
+// --- 算術演算 ---
 ?arrow: sum | arrow "->" sum -> arrow_op
 ?sum: product | sum "+" product -> add | sum "-" product -> sub
 ?product: power | product "*" power -> mul | product "/" power -> div
 ?power: atom | atom "^" power -> pow
 
+// ------------------------------
 ?atom: SIGNED_NUMBER    -> number
      | STRING           -> string_literal
      | VAR_NAME         -> var_load
      | BODY_NAME        -> body_load
      | funccall
      | auxcall
-     | "(" expr ")"
-	 | dot_access
+     | "(" expr ")"     // ここを expr にすることで括弧内の論理演算を許可
+
+     | dot_access
+
+//
+assignment: VAR_NAME "=" expr  -> assign_var
+          | BODY_NAME "=" expr  -> assign_body
 
 dot_access: VAR_NAME "." VAR_NAME
           | dot_access "." VAR_NAME
-
-comparison: expr (">" | "<" | "==") expr
 
 funccall: (BODY_NAME | VAR_NAME) "(" [arglist] ")"
 auxcall: (BODY_NAME | VAR_NAME) "[" [arglist] "]"
@@ -48,8 +64,5 @@ COMMENT: "//" /[^\n]/*
 
 # 改行は明示的に扱う
 %import common.NEWLINE
-
-# %import common.WS
-# %ignore WS
-
 %ignore COMMENT
+

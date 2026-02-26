@@ -188,7 +188,7 @@ class ArrowOperationHandler:
         if isinstance(obs, SSOEarth) and isinstance(target, ephem.Moon):
             logger.debug(f"Lunar eclipse mode")
             obs.moon = target
-            period = int(self.var_mgr.observer.get("Moon",5))
+            period = int(self.var_mgr.observer.get("Moon",5))   # 期間省略時は５年
             #place = self.var_mgr.observer.get("Here","")
             place = next(iter(self.var_mgr.observer.values()), "here")
             res = obs.lunar_eclipse(period, place)
@@ -390,9 +390,47 @@ class SSOInterpreter(Interpreter):
         expr = self.visit(tree.children[1])
         result = self.var_mgr.set_body(name, expr)
         return result
+
+    # ===== 倫理演算系 =====
+
+    # --- 論理演算 ---
+    def or_op(self, tree):
+        # logical_or: logical_or "OR" logical_and
+        # 左辺を評価し、真なら右辺を評価せずに短絡評価(Short-circuit)することも可能
+        left = self.visit(tree.children[0])
+        if left: return True
+        return bool(self.visit(tree.children[1]))
+
+    def and_and(self, tree):
+        # logical_and: logical_and "AND" logical_not
+        left = self.visit(tree.children[0])
+        if not left: return False
+        return bool(self.visit(tree.children[1]))
+
+    def not_op(self, tree):
+        # logical_not: "NOT" logical_not
+        res = self.visit(tree.children[0])
+        return not res
+
+    # --- 比較演算 ---
+    def compare_op(self, tree):
+        # comparison: arrow (">" | "<" | "==" | "!=") arrow
+        left = self.visit(tree.children[0])
+        op = tree.children[1]  # 演算子文字列
+        right = self.visit(tree.children[2])
+
+        if op == ">":
+            return left > right
+        elif op == "<":
+            return left < right
+        elif op == "==":
+            return left == right
+        elif op == "!=":
+            return left != right
+        return False
     
 
-    # ===== 演算系 =====
+    # ===== 算術演算系 =====
     
     def arrow_op(self, tree) -> str:
         """
@@ -444,10 +482,8 @@ class SSOInterpreter(Interpreter):
     def dot_access(self, tree) -> Any:
         """
         ドットアクセス (var.attr)
-        
         Args:
             tree: 構文木
-            
         Returns:
             属性値
         """
