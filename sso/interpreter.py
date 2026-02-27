@@ -3,6 +3,7 @@ sso interpreter : Lark Interpreterを用いたDSL実行エンジン
 """
 from lark.visitors import Interpreter
 from lark import Token
+from lark import Tree
 from classes import (SSOObserver, SSOSystemConfig, Constants)
 from classes import SSOEarth
 from classes import console
@@ -394,6 +395,7 @@ class SSOInterpreter(Interpreter):
     # ===== 倫理演算系 =====
 
     # --- 論理演算 ---
+    """
     def or_op(self, tree):
         # logical_or: logical_or "OR" logical_and
         # 左辺を評価し、真なら右辺を評価せずに短絡評価(Short-circuit)することも可能
@@ -401,34 +403,65 @@ class SSOInterpreter(Interpreter):
         if left: return True
         return bool(self.visit(tree.children[1]))
 
+    """
+    def or_op(self, tree):
+        left = self.visit(tree.children[0])
+        # tree.children[1] は "OR" トークン
+        right = self.visit(tree.children[2])
+        return float(left or right)
+
+
+    """
     def and_and(self, tree):
         # logical_and: logical_and "AND" logical_not
         left = self.visit(tree.children[0])
         if not left: return False
         return bool(self.visit(tree.children[1]))
+    """
 
+    def and_and(self, tree):
+        left = self.visit(tree.children[0])
+        # tree.children[1] は "AND" トークンなので無視
+        right = self.visit(tree.children[2])
+        return float(left and right)
+
+    """
     def not_op(self, tree):
         # logical_not: "NOT" logical_not
         res = self.visit(tree.children[0])
         return not res
+    """
+
+    def not_op(self, tree):
+        # children[0] は Token("NOT_OP", "NOT") なので visit しない
+        value = self.visit(tree.children[1])
+        return float(not value)
+
 
     # --- 比較演算 ---
     def compare_op(self, tree):
+        logger.debug(f"compare: {tree}")
         # comparison: arrow (">" | "<" | "==" | "!=") arrow
         left = self.visit(tree.children[0])
         op = tree.children[1]  # 演算子文字列
         right = self.visit(tree.children[2])
 
-        if op == ">":
-            return left > right
-        elif op == "<":
-            return left < right
-        elif op == "==":
-            return left == right
-        elif op == "!=":
-            return left != right
-        return False
+        logger.debug(f"compare: left={left} op={op} right={right}")
+
+        if   op == ">" : res = left > right
+        elif op == "<" : res = left < right
+        elif op == "==": res = left == right
+        elif op == "!=": res = left != right
+        else           : res = False
     
+        return float(res)
+
+    """
+    Visitorパターンの鉄則:
+    Tree オブジェクト: self.visit() に渡して再帰的に処理する。
+    Token オブジェクト: 文字列として値を参照する。str(token)
+    self.visit() に渡してはいけない。
+    """
 
     # ===== 算術演算系 =====
     
@@ -578,6 +611,7 @@ class SSOInterpreter(Interpreter):
                 return args
             case "Phase": return self._handle_phase_function(args)
             case "Print": return console.print(args)
+            case "print": return console.print(args)
             case _      :
                 # その他のephem関数
                 logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
@@ -694,3 +728,47 @@ class SSOInterpreter(Interpreter):
                 last_result = res
         return last_result
 
+
+    # ===== 制御構造 =====
+    """
+    self.visit(tree) は使わない: 
+    if_stmt メソッドの中で self.visit(tree) を呼ぶと、無限ループになる。
+    必ず子要素 tree.children[n] を指定して visit すること。
+    インデックスの確認:
+    list index out of range を防ぐため、文法で "IF" などを大文字トークン
+    （IF_KWD: "IF"）にしている場合は、それらも children に含まれる。
+    真偽判定:
+    bool(condition_result) で 0.0 かそれ以外かを判定する。
+    """
+
+    def if_stmt(self, tree):
+
+        # tree.children の中身を安全に抽出する
+        # Tokenを除外して Tree（式やブロック）だけを取り出す
+        nodes = [child for child in tree.children if isinstance(child, Tree)]
+
+        # nodes[0] = 条件式 (expr)
+        # nodes[1] = THENブロック
+        # nodes[2] = ELSEブロック (存在すれば)
+
+        condition_result = self.visit(nodes[0])
+
+        if bool(condition_result):
+            # 真の場合：THENブロックを実行
+            return self.visit(nodes[1])
+        elif len(nodes) > 2:
+            # 偽の場合：ELSEブロックがあれば実行
+            return self.visit(nodes[2])
+
+        return None
+
+    def block(self, tree):
+        last_result = None
+        for statement in tree.children:
+            # statement が Tree (代入文やprint文など) の場合のみ実行
+            if isinstance(statement, Tree):
+                last_result = self.visit(statement)
+            else:
+                # Token ("else" や "endif" など) は無視する
+                logger.debug(f"Skipping token in block: {statement}")
+        return last_result

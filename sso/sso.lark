@@ -12,16 +12,21 @@ block: statement+
 ?expr: logical_or
 
 ?logical_or: logical_and
-           | logical_or "OR" logical_and  -> or_op
+           | logical_or OR_OP logical_and  -> or_op
+OR_OP: "OR"
 
 ?logical_and: logical_not
-            | logical_and "AND" logical_not -> and_and
+            | logical_and AND_OP logical_not -> and_and
+AND_OP: "AND"
 
-?logical_not: "NOT" logical_not -> not_op
+?logical_not: NOT_OP logical_not -> not_op
             | comparison
+NOT_OP: "NOT"
 
-?comparison: arrow (">" | "<" | "==" | "!=") arrow -> compare_op
+?comparison: arrow COMPARISON_OP arrow -> compare_op
            | arrow
+
+COMPARISON_OP: ">" | "<" | "==" | "!="
 
 // --- 算術演算 ---
 ?arrow: sum | arrow "->" sum -> arrow_op

@@ -21,6 +21,7 @@ from lark.exceptions import UnexpectedToken, UnexpectedEOF
 from interpreter import SSOInterpreter
 from classes import SSOSystemConfig, SSOLexer
 from classes import console
+from classes import Constants
 from ssohelp import Body_help
 
 # 以下、見栄えを改善するための外部システムのインポート
@@ -125,7 +126,7 @@ class SSOShell(cmd.Cmd):
                 #self.onecmd(self.code_buffer)
 
                 stop = self.onecmd(text)
-                self.postcmd(stop, text)
+                #self.postcmd(stop, text)
 
     # 実行直後に呼ばれる
     def postcmd(self, stop, line):
@@ -247,6 +248,7 @@ class SSOShell(cmd.Cmd):
 
         # os.system を使用して、入力されたコマンドを直接実行
         os.system(line)
+        self.code_buffer=""
 
     def do_hello(self, arg):
         self.code_buffer =""
@@ -265,12 +267,40 @@ class SSOShell(cmd.Cmd):
         print()
         return True
 
-    def help_Moon(self):
-        """ これはDocstring のMoon """
-        print("【Moonトピックの本文】")
-        print("ここには月に関する詳細な説明を記載できます。")
-        print("コマンドではありませんが、ガイドとして表示されます。")
-        print(Body_help.get("Moon"))
+    def do_help(self, arg):
+        """
+        help と打つとコマンド一覧、help [コマンド名] で詳細を表示します。
+        コマンド名は、先頭文字を入力してTabキーを押すと補完機能が働きます。
+        """
+        """help [コマンド名]\nヘルプを表示します。"""
+        # 引数がない（単に help と打たれた）場合
+        if not arg:
+            print("\n" + "="*30)
+            print("【コマンド入力形式のガイド】")
+            print("  代入 : 変数 = コマンド名(引数)")
+            print("  観測 : 観測地 -> 天体名")
+            print("  月食 : Sun -> 観測地 -> Moon")
+            print("")
+            print("＊観測の前に変数Timeに観測したい時刻を入力します。")
+            print("＊方法は”help Time”を参照してください。")
+            print("＊Timeには、あらかじめSSO起動時の時刻が入ってます。")
+            print("＊観測地にHereを指定すると、構成情報config.iniで設定した現在地が使われます。")
+            print("＊コマンド名や天体名はTabキーで文字入力補完機能が使えます。")
+
+            print("  - 終了するには 'exit' または 'quit' と入力してください。")
+            print("="*30 + "\n")
+            input("Returnキーを押してください")
+
+        # 親クラスの help 処理をそのまま呼び出す
+        res = cmd.Cmd.do_help(self, arg)
+        self.code_buffer = "" # 後処理
+        return res
+
+    def help_Body(self):
+        planets =  [name for _0, _1, name in ephem._libastro.builtin_planets()]
+
+        print(Body_help.get("Body"))
+        print(" ".join(planets))
 
     def print_topics(self, header, cmds, cmdlen, maxcol):
         if cmds:
