@@ -22,7 +22,7 @@ from interpreter import SSOInterpreter
 from classes import SSOSystemConfig, SSOLexer
 from classes import console
 from classes import Constants
-from ssohelp import Body_help
+from ssohelp import command_help
 
 # 以下、見栄えを改善するための外部システムのインポート
 
@@ -251,6 +251,7 @@ class SSOShell(cmd.Cmd):
         self.code_buffer=""
 
     def do_hello(self, arg):
+        """Hello ! とご挨拶します"""
         self.code_buffer =""
         print(f"Hello {arg}!")
 
@@ -267,42 +268,16 @@ class SSOShell(cmd.Cmd):
         print()
         return True
 
-    def do_help(self, arg):
-        """
-        help と打つとコマンド一覧、help [コマンド名] で詳細を表示します。
-        コマンド名は、先頭文字を入力してTabキーを押すと補完機能が働きます。
-        """
-        """help [コマンド名]\nヘルプを表示します。"""
-        # 引数がない（単に help と打たれた）場合
-        if not arg:
-            print("\n" + "="*30)
-            print("【コマンド入力形式のガイド】")
-            print("  代入 : 変数 = コマンド名(引数)")
-            print("  観測 : 観測地 -> 天体名")
-            print("  月食 : Sun -> 観測地 -> Moon")
-            print("")
-            print("＊観測の前に変数Timeに観測したい時刻を入力します。")
-            print("＊方法は”help Time”を参照してください。")
-            print("＊Timeには、あらかじめSSO起動時の時刻が入ってます。")
-            print("＊観測地にHereを指定すると、構成情報config.iniで設定した現在地が使われます。")
-            print("＊コマンド名や天体名はTabキーで文字入力補完機能が使えます。")
 
-            print("  - 終了するには 'exit' または 'quit' と入力してください。")
-            print("="*30 + "\n")
-            input("Returnキーを押してください")
+    ### HELP関連の制御 ###
 
-        # 親クラスの help 処理をそのまま呼び出す
-        res = cmd.Cmd.do_help(self, arg)
-        self.code_buffer = "" # 後処理
-        return res
-
-    def help_Body(self):
-        planets =  [name for _0, _1, name in ephem._libastro.builtin_planets()]
-
-        print(Body_help.get("Body"))
-        print(" ".join(planets))
+    undoc_header = "Undocumented commands" # 判別用のデフォルト値
 
     def print_topics(self, header, cmds, cmdlen, maxcol):
+        # 見出しが「ヘルプなし」用のものだった場合、何もせずリターンする
+        if header == self.undoc_header:
+            return
+
         if cmds:
             self.stdout.write("%s\n" % str(header))
             if self.ruler:
@@ -311,6 +286,34 @@ class SSOShell(cmd.Cmd):
                 self.stdout.write("%s\n" % (self.ruler * header_width))
             self.columnize(cmds, maxcol)
             self.stdout.write("\n")
+
+    def do_help(self, arg):
+        """
+        help と打つとコマンド一覧、help [コマンド名] で詳細を表示します。
+        コマンド名は、先頭文字を入力してTabキーを押すと補完機能が働きます。
+        """
+        """help [コマンド名]\nヘルプを表示します。"""
+        # 引数がない（単に help と打たれた）場合
+        if not arg:
+            from ssohelp import help_help
+            console.print("\n".join(help_help))
+
+        else:
+            help_message = command_help.get(arg, None)
+            if help_message:
+                console.print(help_message)
+            else:
+                # 親クラスの help 処理をそのまま呼び出す
+                #res = cmd.Cmd.do_help(self, arg)
+                # 引数がある時だけ、標準の「個別ヘルプ検索ロジック」を呼び出す
+                super().do_help(arg)
+        self.code_buffer = "" # 後処理
+        return
+
+    def help_Body(self):
+        planets =  [name for _0, _1, name in ephem._libastro.builtin_planets()]
+        console.print(command_help.get("_body_common_",""))
+        console.print(" ".join(planets))
 
 
 if __name__ == "__main__":

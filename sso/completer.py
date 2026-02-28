@@ -2,6 +2,7 @@ from prompt_toolkit.completion import WordCompleter
 sso_completer = WordCompleter([
     'Date', 'Direction', 'Observer', 'Now', 'Time',     # コマンド
     'Time', 'Here', 'Log', 'Echo',                      # 環境変数
+    'Body',                                             # Help用
     ### 天体 ###
     'Sun', 'Mercury', 'Venus',
     'Earth', 'Moon',

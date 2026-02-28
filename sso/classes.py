@@ -121,7 +121,6 @@ def boolean_setter(key_name: str):
 
 # ===== システム設定管理クラス =====
 class SSOSystemConfig:
-    """システム設定管理クラス（リファクタリング版）"""
     
     def __init__(self):
         self.env = {
@@ -168,7 +167,7 @@ class SSOSystemConfig:
         if not isinstance(value, ephem.Date):
             raise AttributeError(Constants.ERR_TIME)
         self.env["Time"] = value
-        return f"Observation date_time: {self.env['Time']}"
+        return f"Observation date_time: {self.env['Time']} [UTC]"
     
     def SSOEphem(self, attr: str, value=None):
         """ephemの関数やクラスを呼び出す"""

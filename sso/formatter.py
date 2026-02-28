@@ -72,10 +72,10 @@ class BodyPosition:
 
     def altitude_visible(self, alt: float) -> str:
         match alt:
-            case h if h <= 0:                 res = "見えません"
-            case h if (h > 0) and (h < 10):   res = "地平線ギリギリに見えます"
-            case h if (h >= 10) and (h < 20): res = "地平線近くに見えます"
-            case h if h >= 20:                res = "見えます"
+            case h if h <= 0:                 res = "地球の裏側にいます"
+            case h if (h > 0) and (h < 10):   res = "地平線ギリギリにいます"
+            case h if (h >= 10) and (h < 20): res = "地平線近くにいます"
+            case h if h >= 20:                res = "[方位]の方向にいます"
             case _: res = ""
         return res
 
@@ -271,17 +271,7 @@ class MoonFormatter(CelestialBodyFormatter):
 
 class PlanetFormatter(CelestialBodyFormatter):
     """惑星専用フォーマッター"""
-    planet = {
-        "Mercury"   :   "水星",
-        "Venus"     :   "金星",
-        "Earth"     :   "地球",
-        "Mars"      :   "火星",
-        "Jupiter"   :   "木星",
-        "Saturn"    :   "土星",
-        "Uranus"    :   "天王星",
-        "Neptune"   :   "海王星",
-        "Pluto"     :   "冥王星"
-    }
+    from ssohelp import planet      # これは self.planet
 
     def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
         """惑星の情報を整形"""
@@ -289,6 +279,8 @@ class PlanetFormatter(CelestialBodyFormatter):
         
         # 惑星の計算
         planet = CelestialCalculator(observer, body, self.config)
+        # ↑これはselfでないplanet 間際らしいので間違えないように
+
         position = planet.calculate_current_position()
         planet_eng = getattr(body, 'name')
         planet_name = self.planet.get(planet_eng, planet_eng)
@@ -329,17 +321,8 @@ class PlanetFormatter(CelestialBodyFormatter):
 
     # 等級ガイドラインの編集
     def _get_magnitude_guideline(self, mag:float) ->str:
-        match int(mag):
-            case n if n < 0: res = "[bold bright_white]非常に明るい[/bold bright_white]"
-            case 0: res = "[bright_white]非常に明るい[/bright_white]"
-            case 1: res = "[bright_white]街なかでも確認可能[/bright_white]"
-            case 2: res = "[white]街なかではなんとか見える[/white]"
-            case 3: res = "[gray62]街なかでは見えづらい[/gray62]"
-            case 4: res = "[gray50]郊外の暗い空で見えるレベル[/gray50]"
-            case 5: res = "[gray42]郊外の暗い空でも見えづらい[/gray42]"
-            case 6: res = "[gray30]肉眼で見える限界の明るさ[/gray30]"
-            case _: res = "[gray19]双眼鏡(7×50：9.5 等まで) や望遠鏡が必要[/gray19]"
-        return res
+        from ssohelp import mag_guide
+        return mag_guide[ min(int(mag) + 1 if int(mag) > 0 else 0, 8) ]
         """
         星の等級別 見え方目安
         〜0等星（マイナス含む）： 非常に明るい。シリウス（-1.46等）、カノープスなど。
