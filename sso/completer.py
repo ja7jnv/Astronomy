@@ -1,8 +1,8 @@
 from prompt_toolkit.completion import WordCompleter
 sso_completer = WordCompleter([
-    'Date', 'Direction', 'Observer', 'Now', 'Time',     # コマンド
-    'Time', 'Here', 'Log', 'Echo',                      # 環境変数
-    'Body',                                             # Help用
+    'Date', 'Direction', 'Observer', 'Now',             # 上位ほど優先順位が高い
+    'Time', 'Here', 'Log', 'Echo',
+    'Body', 'Home',
     ### 天体 ###
     'Sun', 'Mercury', 'Venus',
     'Earth', 'Moon',

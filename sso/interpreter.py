@@ -323,7 +323,7 @@ class SSOInterpreter(Interpreter):
     def _load_config(self) -> None:
 
         # 観測値の緯度、軽度、及び標高を得る
-        def _observer_set(place: str) -> None:
+        def _observer_set(place: str) -> Any:
             try:
                 lat = ini[place]['lat']
                 lon = ini[place]['lon']
@@ -334,6 +334,7 @@ class SSOInterpreter(Interpreter):
             except KeyError:
                 pass
 
+            return self.config.env.get(place, place)
         try:
             ini = configparser.ConfigParser()
             ini.read('config.ini', encoding='utf-8')
@@ -344,7 +345,8 @@ class SSOInterpreter(Interpreter):
             setattr(self.config.env['Earth'], "elevation", float(-Constants.EARTH_RADIUS))
             
             # Here（観測地）をconfig.iniから読み込んだ値に設定
-            _observer_set('Here')
+            self.Home = _observer_set('Here')
+            # Here破壊に備えHome変数に退避:Homeコマンドで使用
 
             # Chokai（観測地：鳥海山）をconfig.iniから読み込んだ値に設定
             _observer_set('Chokai')
@@ -602,6 +604,7 @@ class SSOInterpreter(Interpreter):
             case "Now" : return self.config.SSOEphem("now")
             case  f if f in ["Observer", "Mountain"]:
                 return self._handle_location_function(func_name, args)
+            case "Home": return self._handle_home_function()
             case "Direction":
                 direction =int(*args)
                 if direction in [4, 8, 16]:
@@ -691,6 +694,10 @@ class SSOInterpreter(Interpreter):
         location = SSOObserver(func_name, lat, lon, elev, config=self.config)
         return location.ephem_obs
     
+    def _handle_home_function(self):
+        self.config.env["Here"] = self.Home
+        return
+
     def _handle_phase_function(self, args: List[Any]) -> str:
         """Phase関数の処理"""
         if not args:

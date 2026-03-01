@@ -115,7 +115,7 @@ class SSOShell(cmd.Cmd):
                     prompt = self.colored_prompt
                 text = self.session.prompt(prompt, reserve_space_for_menu=0)
             except EOFError:
-                logger.debug(f"text: {text}")
+                logger.debug(f"text: {self.code_buffer}")
                 break
             except KeyboardInterrupt: continue
 
