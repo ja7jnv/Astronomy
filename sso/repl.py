@@ -5,14 +5,26 @@ format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger =  logging.getLogger(__name__)
 
+# 基幹部分の外部システムをインポート
 import sys
 import cmd
+import unicodedata
+import os
 import ephem
+from datetime import datetime
+
 import readline  # 矢印キー・履歴が有効
 from lark import Lark, Token
+from lark.exceptions import UnexpectedToken, UnexpectedEOF
+
+# プロジェクト内のクラスのインポート
 from interpreter import SSOInterpreter
 from classes import SSOSystemConfig, SSOLexer
 from classes import console
+from classes import Constants
+from ssohelp import command_help
+
+# 以下、見栄えを改善するための外部システムのインポート
 
 # 入力中のコマンドにシンタックスハイライト
 from prompt_toolkit import PromptSession
@@ -44,19 +56,29 @@ from rich.console import Console
 from rich.panel import Panel
 
 class SSOShell(cmd.Cmd):
+    ## ここでHelpの見出しをカスタマイズ
+    misc_header = "その他のガイド・解説:"
+    doc_header = "実行可能なコマンド一覧:"
+    undoc_header = "ヘルプ未作成のコマンド:"
+    #ruler = "-"  # 見出しの下の線を「-」に変更（デフォルトは「=」）
+
     # prompt_toolkitで使うためのHTMLタグ付きプロンプト
     # <style名>テキスト</style名> の形式で記述
     colored_prompt = HTML('<ansicyan>sso</ansicyan><ansigray>></ansigray> ')
 
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
     intro_text = """
-[bold magenta]SSO Celestial Navigation System[/bold magenta] [dim]v0.1[/dim]
-[cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
+[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]機能確認版 V0.1[/dim]
+
+    [cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
+
+    Copyright (C) 2026 Shigeaki Tendo
     """
-    prompt = "sso> "
+    continue_prompt = "... "
 
     def __init__(self):
         super().__init__()
+        self.code_buffer = ""
         
         # 入力ハイライト用のセッション
         self.session = PromptSession(
@@ -81,19 +103,41 @@ class SSOShell(cmd.Cmd):
         #print(intro or "DSL Shell Started. (Ctrl+D to exit)")
         # 標準のイントロ表示をスキップし、Richで表示
         console.print(Panel(self.intro_text, border_style="blue"))
-        while True:
+        self.code_buffer = ""
+        stop = None
+        while not stop:
+            logger.debug(f"start parser code_buffer:{self.code_buffer}")
+            if self.code_buffer == "\n": self.code_buffer = ""
             try:
-                # 入力中のハイライト適用
-                #text = self.session.prompt(self.prompt)
-                text = self.session.prompt(self.colored_prompt, reserve_space_for_menu=0)
-                if text.strip():
-                    self.onecmd(text)
-            except EOFError: break
+                if self.code_buffer:
+                    prompt = self.continue_prompt
+                else:
+                    prompt = self.colored_prompt
+                text = self.session.prompt(prompt, reserve_space_for_menu=0)
+            except EOFError:
+                logger.debug(f"text: {self.code_buffer}")
+                break
             except KeyboardInterrupt: continue
+
+            self.code_buffer += text + "\n"
+            logger.debug(f"code_buffer:\n*start_sentence*\n{self.code_buffer}*end_sentence*")
+            if self.code_buffer.strip():
+                logger.debug(f"Evaluate code_buffer:\n**BEGIN**\n{self.code_buffer}**END**")
+                #self.onecmd(self.code_buffer)
+
+                stop = self.onecmd(text)
+                #self.postcmd(stop, text)
+
+    # 実行直後に呼ばれる
+    def postcmd(self, stop, line):
+        logger.debug(f"--- [POST] '{line}' の実行が終わりました ---")
+        self.code_buffer = "" # 後処理
+        return stop
 
     def emptyline(self):
         # 何もしないように上書き（これがないと直前のコマンドが走る）
-        pass
+        logger.debug("emptyline")
+        #pass
 
     def reset_observation_environment(self):
         # TODO - なぜこの場所にTimeのリセットがあるのか？ とりあえず無効化
@@ -101,6 +145,7 @@ class SSOShell(cmd.Cmd):
         self.interp.var_mgr.observer = {}
 
     def default(self, line):
+        logger.debug(f"default: line={line}")
         if not line.strip():
             return
         try:
@@ -120,7 +165,9 @@ class SSOShell(cmd.Cmd):
             self.reset_observation_environment()
 
             # パースを実行（末尾に改行を付けて文末を認識させる）
-            tree = self.parser.parse(line + "\n")
+            #tree = self.parser.parse(line + "\n")
+            tree = self.parser.parse(self.code_buffer)
+            self.code_buffer = ""
 
             # 慣れるまで、解析木を表示する
             logger.debug(tree.pretty())
@@ -135,6 +182,7 @@ class SSOShell(cmd.Cmd):
                 # 「リストの強要」というテクニックらしい
 
             for res in results:
+                logger.debug(f"res:{res}")
                 # Token(改行等)は無視
                 if isinstance(res, Token):
                     continue
@@ -144,7 +192,8 @@ class SSOShell(cmd.Cmd):
                     for sub_res in res:
                         if not isinstance(sub_res, Token) and sub_res is not None:
                             if self.interp.config.env["Echo"] == "Yes":
-                                print(sub_res)
+                                logger.debug(f"sub_res:{sub_res}")
+                                console.print(sub_res)
                 else:
                     # 通常の出力
                     if res is not None and (self.interp.config.env["Echo"] == "Yes"):
@@ -152,21 +201,62 @@ class SSOShell(cmd.Cmd):
                         match res:
                             case ephem.Date():
                                 # <class 'ephem.Date'> なら Tz を加算する
-                                print(f"{self.interp.config.fromUTC(res)}")
+                                date_str=f"{self.interp.config.fromUTC(res)}"
+                                base_part = date_str[:19]
+                                tz_part = date_str[20:]
+                                dt = datetime.strptime(base_part, "%Y/%m/%d %H:%M:%S")
+                                weekday = dt.strftime("%a").upper()
+                                formatted_str = f"{date_str[:10]} ({weekday}) {date_str[10:]}"
+                                console.print(formatted_str)
                             case float() | str() | int():
                                 console.print(res)
+                            case ephem.Observer():
+                                console.print(f"観測地オブジェクト:")
+                                console.print(f"date={self.interp.config.fromUTC(res.date)}  緯度={res.lat}  経度={res.lon}  標高={res.elevation:.1f}")
+                            case ephem.Body():
+                                console.print(f"天体オブジェクト:\n{res}")
                             case _:
+                                logger.debug(res)
                                 pass
+
+        except UnexpectedToken as e:
+            if e.token.type == '$END':
+                # 入力がまだ途中の場合（if文の途中など）は、次の行を待つ
+                # continue
+                pass
+            else:
+                # 本当の文法エラーの場合は表示してバッファをリセット
+                print(f"Syntax Error: {e}")
+                self.code_buffer = ""
+
+        except UnexpectedEOF:
+            # Larkのバージョンや設定によっては UnexpectedEOF が発生する
+            # こちらもキャッチして継続
+            # continue
+            pass
 
         except Exception as e:
             print(f"Error: {e}")
+            self.code_buffer = ""
 
     # --- シェル制御コマンド ---
+    def do_shell(self, line):
+        """! <command> : OSのシェルコマンドを実行する"""
+        if not line:
+            console.print("コマンドを入力してください")
+            return
+
+        # os.system を使用して、入力されたコマンドを直接実行
+        os.system(line)
+        self.code_buffer=""
+
     def do_hello(self, arg):
+        """Hello ! とご挨拶します"""
+        self.code_buffer =""
         print(f"Hello {arg}!")
 
     def do_exit(self, arg):
-        """終了コマンド"""
+        console.print("""SSOを終了します""")
         return True # Trueを返すとループが終了する
 
     def do_quit(self, arg):
@@ -177,6 +267,54 @@ class SSOShell(cmd.Cmd):
     def do_EOF(self, arg):
         print()
         return True
+
+
+    ### HELP関連の制御 ###
+
+    undoc_header = "Undocumented commands" # 判別用のデフォルト値
+
+    def print_topics(self, header, cmds, cmdlen, maxcol):
+        # 見出しが「ヘルプなし」用のものだった場合、何もせずリターンする
+        if header == self.undoc_header:
+            return
+
+        if cmds:
+            self.stdout.write("%s\n" % str(header))
+            if self.ruler:
+                # 日本語の幅（全角2, 半角1）を計算して下線を引く
+                header_width = sum([(2 if unicodedata.east_asian_width(c) in 'FWA' else 1) for c in header])
+                self.stdout.write("%s\n" % (self.ruler * header_width))
+            self.columnize(cmds, maxcol)
+            self.stdout.write("\n")
+
+    def do_help(self, arg):
+        """
+        help と打つとコマンド一覧、help [コマンド名] で詳細を表示します。
+        コマンド名は、先頭文字を入力してTabキーを押すと補完機能が働きます。
+        """
+        """help [コマンド名]\nヘルプを表示します。"""
+        # 引数がない（単に help と打たれた）場合
+        if not arg:
+            from ssohelp import help_help
+            console.print("\n".join(help_help))
+
+        else:
+            help_message = command_help.get(arg, None)
+            if help_message:
+                console.print(help_message)
+            else:
+                # 親クラスの help 処理をそのまま呼び出す
+                #res = cmd.Cmd.do_help(self, arg)
+                # 引数がある時だけ、標準の「個別ヘルプ検索ロジック」を呼び出す
+                super().do_help(arg)
+        self.code_buffer = "" # 後処理
+        return
+
+    def help_Body(self):
+        planets =  [name for _0, _1, name in ephem._libastro.builtin_planets()]
+        console.print(command_help.get("_body_common_",""))
+        console.print(" ".join(planets))
+
 
 if __name__ == "__main__":
     try:
