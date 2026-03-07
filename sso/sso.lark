@@ -43,19 +43,21 @@ COMPARISON_OP: ">" | "<" | "==" | "!="
 ?power: atom | atom "^" power -> pow
 
 // ------------------------------
-//?atom: SIGNED_NUMBER    -> number
 ?atom: number
      | STRING           -> string_literal
-     | VAR_NAME         -> var_load
-     | BODY_NAME        -> body_load
+	 | FSTRING          -> f_string
      | funccall
      | auxcall
-     | "(" expr ")"     // ここを expr にすることで括弧内の論理演算を許可
-
+     | VAR_NAME         -> var_load
+     | BODY_NAME        -> body_load
+     | "(" expr ")"
      | dot_access
 
 //
-assignment: VAR_NAME "=" expr  -> assign_var
+
+FSTRING.2: /f"[^"]*"/           // FSTRING の優先度を高く設定 (.2)
+
+assignment: VAR_NAME "=" expr   -> assign_var
           | BODY_NAME "=" expr  -> assign_body
 
 dot_access: VAR_NAME "." VAR_NAME
@@ -70,7 +72,6 @@ BODY_NAME: /[A-Z][a-zA-Z0-9_]*/
 STRING: /"[^"]*"/ | /'[^']*'/
 COMMENT: "//" /[^\n]/*
 
-// %import common.SIGNED_NUMBER
 ?number: FLOAT -> float_num
        | INT   -> int_num
 

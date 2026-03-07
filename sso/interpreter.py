@@ -16,6 +16,7 @@ import numpy as np
 import configparser
 import ephem
 import math
+import re
 
 import logging
 logging.basicConfig(
@@ -891,4 +892,37 @@ class SSOInterpreter(Interpreter):
     def continue_stmt(self, tree):
         raise ContinueException()
 
+
+
+    def f_string(self, tree):
+        # tree.children[0] が Token('FSTRING', 'f"..."')
+        token_val = str(tree.children[0])
+        raw_content = token_val[2:-1] # f" と " を削る
+        # 1. 囲みの f" と " を除去
+        #raw_content = str(tree.children).strip('f"')
+
+        # 2. {...} 内を解析して置換する関数
+        def replace_match(match):
+            inner = match.group(1)  # 例: "a:3.2f"
+
+            # 変数名と書式指定子に分ける
+            if ":" in inner:
+                var_name, fmt = inner.split(":", 1)
+                fmt = ":" + fmt  # format関数用に ":" を戻す
+            else:
+                var_name, fmt = inner, ""
+
+            # 変数テーブルから値を取得
+            val = self.var_mgr.variables.get(var_name.strip(), "N/A")
+
+            # Pythonの format 関数に丸投げする (例: format(1.2345, "3.2f"))
+            try:
+                return format(val, fmt.strip(":"))
+            except Exception as e:
+                return f"{{Error:{e}}}"
+
+        # 文字列内の {...} をすべて置換
+        # パターン: { の後に "}" 以外の文字が続くもの
+        result = re.sub(r"\{(.*?)\}", replace_match, raw_content)
+        return result
 
