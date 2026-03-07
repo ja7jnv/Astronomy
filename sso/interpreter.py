@@ -15,6 +15,8 @@ from typing import Any, Optional, Union, List
 import numpy as np
 import configparser
 import ephem
+import math
+import re
 
 import logging
 logging.basicConfig(
@@ -22,6 +24,9 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+class BreakException(Exception): pass
+class ContinueException(Exception): pass
 
 # ===== 変数管理クラス =====
 class VariableManager:
@@ -316,6 +321,21 @@ class SSOInterpreter(Interpreter):
         self.config = SSOSystemConfig()
         self.var_mgr = VariableManager(self.config)
         self.arrow_handler = ArrowOperationHandler(self.config, self.var_mgr)
+        # 組み込み関数のマッピング
+        self.builtins = {
+            "abs": abs,
+            "round": round,
+            "min": min,
+            "max": max,
+            "int": int,
+            "float": float,
+            "sqrt": math.sqrt,
+            "sin": math.sin,
+            "cos": math.cos,
+            "tan": math.tan,
+            "log": math.log,
+            "pow": pow,
+        }
 
         # 設定ファイル読み込み
         self._load_config()
@@ -470,10 +490,8 @@ class SSOInterpreter(Interpreter):
     def arrow_op(self, tree) -> str:
         """
         矢印演算子の処理
-        
         Args:
             tree: 構文木
-            
         Returns:
             演算結果
         """
@@ -494,7 +512,18 @@ class SSOInterpreter(Interpreter):
     
     def div(self, tree) -> float:
         return self.visit(tree.children[0]) / self.visit(tree.children[1])
-    
+
+    def mod(self, tree):
+        left = self.visit(tree.children[0])
+        right = self.visit(tree.children[1])
+        return left % right
+
+    def int_num(self, tree):
+        return int(tree.children[0])
+
+    def float_num(self, tree):
+        return float(tree.children[0])
+
     def pow(self, tree) -> float:
         return self.visit(tree.children[0]) ** self.visit(tree.children[1])
     
@@ -583,8 +612,8 @@ class SSOInterpreter(Interpreter):
         
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
-        attr = tree.children[0].value
-        logger.debug(f"funccall: {attr}")
+        func_name = tree.children[0].value
+        logger.debug(f"funccall: {func_name}")
         
         # 引数の処理
         args = []
@@ -592,19 +621,29 @@ class SSOInterpreter(Interpreter):
             child = tree.children[1]
             if hasattr(child, 'data'):
                 args = self.visit(child)
-        
+
+        # 組み込み関数にあるか確認
+        if func_name in self.builtins:
+            # Pythonの関数を呼び出す（可変長引数 *args で渡す）
+            try:
+                return self.builtins[func_name](*args)
+            except TypeError as e:
+                logger.error(f"Function {func_name} argument error: {e}")
+                return None
+
+        # SSO定義関数（今後実装予定）の処理
         # 関数ごとの処理を振り分け
-        return self._dispatch_function(attr, args)
+        return self._dispatch_function(func_name, args)
     
     def _dispatch_function(self, func_name: str, args: List[Any]) -> Any:
         logger.debug(f"_dispatch_function: func_name={func_name}")
-        match func_name:
-            case "Date": return self._handle_date_function(args)
-            case "UTC" : return self._handle_utc_function(args)
-            case "Now" : return self.config.SSOEphem("now")
+        match func_name  :
+            case "Date"  : return self._handle_date_function(args)
+            case "UTC"   : return self._handle_utc_function(args)
+            case "Now"   : return self.config.SSOEphem("now")
             case  f if f in ["Observer", "Mountain"]:
                 return self._handle_location_function(func_name, args)
-            case "Home": return self._handle_home_function()
+            case "Home"  : return self._handle_home_function()
             case "Direction":
                 direction =int(*args)
                 if direction in [4, 8, 16]:
@@ -769,13 +808,121 @@ class SSOInterpreter(Interpreter):
 
         return None
 
+    def for_stmt(self, tree):
+        # 各要素の抽出 (Tokenを除外して Tree か特定の Token を取り出す)
+        # tree.children[0] -> VAR_NAME (Token) - 変数名
+        # tree.children[1] -> expr (Tree) - 繰り返し対象（リストや範囲）
+        # tree.children[2] -> block (Tree) - 実行する中身
+        logger.debug(f"tee.children[0] : {tree.children[0]}")
+        logger.debug(f"tee.children[1] : {tree.children[1]}")
+        logger.debug(f"tee.children[2] : {tree.children[2]}")
+
+        # 名前ベースで安全に取得（インデックスのズレ対策）
+        var_name = str(tree.children[0]) # ループ変数名
+        iterable_node = tree.children[1] # 繰り返し対象のノード
+        block_node = tree.children[2]    # 実行するブロック
+
+        # 繰り返し対象（expr）を評価してリスト等を得る
+        # もし expr が range(10) のような関数なら、その戻り値を取得
+        items_val = self.visit(iterable_node)
+
+        # items が数値（単一の値）だった場合に備えて、イテラブルに変換するガード
+        if isinstance(items_val, (int, float)):
+            items = range(int(items_val))
+        else:
+            items = items_val
+
+        last_result = None
+
+        # Pythonのループで回す
+        for value in items:
+            # インタープリター内の変数管理（シンボルテーブル）に値をセット
+            self.var_mgr.variables[var_name] = float(value)
+            try: # ブロックを実行
+                last_result = self.visit(block_node)
+            except BreakException:
+                break
+            except ContinueException:
+                continue
+
+        return last_result
+
+    def while_stmt(self, tree):
+        # children[0]: expr (条件式)
+        # children[1]: block (実行内容)
+        # ※文法で "while" などをトークン化していない(Treeに含まれない)前提
+        condition_node = tree.children[0]
+        block_node = tree.children[1]
+
+        last_result = None
+
+        # Python の while を使って、条件が真の間ループさせる
+        # self.visit(condition_node) で都度最新の条件結果を評価
+        while bool(self.visit(condition_node)):
+            try:
+                last_result = self.visit(block_node)
+            except BreakException:
+                break  # Pythonのwhileを抜ける
+            except ContinueException:
+                continue  # 次の判定へジャンプ
+
+        return last_result
+
+
     def block(self, tree):
         last_result = None
         for statement in tree.children:
             # statement が Tree (代入文やprint文など) の場合のみ実行
             if isinstance(statement, Tree):
-                last_result = self.visit(statement)
+                res = self.visit(statement)
+                # res が [値, "\n"] のリストで返ってくるので、値だけ取り出す
+                if isinstance(res, list) and len(res) > 0:
+                    last_result = res[0]
+                else:
+                    last_result = res
             else:
                 # Token ("else" や "endif" など) は無視する
                 logger.debug(f"Skipping token in block: {statement}")
         return last_result
+
+
+    def break_stmt(self, tree):
+        raise BreakException()
+
+    def continue_stmt(self, tree):
+        raise ContinueException()
+
+
+
+    def f_string(self, tree):
+        # tree.children[0] が Token('FSTRING', 'f"..."')
+        token_val = str(tree.children[0])
+        raw_content = token_val[2:-1] # f" と " を削る
+        # 1. 囲みの f" と " を除去
+        #raw_content = str(tree.children).strip('f"')
+
+        # 2. {...} 内を解析して置換する関数
+        def replace_match(match):
+            inner = match.group(1)  # 例: "a:3.2f"
+
+            # 変数名と書式指定子に分ける
+            if ":" in inner:
+                var_name, fmt = inner.split(":", 1)
+                fmt = ":" + fmt  # format関数用に ":" を戻す
+            else:
+                var_name, fmt = inner, ""
+
+            # 変数テーブルから値を取得
+            val = self.var_mgr.variables.get(var_name.strip(), "N/A")
+
+            # Pythonの format 関数に丸投げする (例: format(1.2345, "3.2f"))
+            try:
+                return format(val, fmt.strip(":"))
+            except Exception as e:
+                return f"{{Error:{e}}}"
+
+        # 文字列内の {...} をすべて置換
+        # パターン: { の後に "}" 以外の文字が続くもの
+        result = re.sub(r"\{(.*?)\}", replace_match, raw_content)
+        return result
+

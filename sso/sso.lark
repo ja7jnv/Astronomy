@@ -1,9 +1,13 @@
 start: statement*
 
-?statement: (assignment | expr | if_stmt | for_stmt) (";" | NEWLINE) | NEWLINE
+?statement: (assignment | expr | if_stmt | for_stmt | while_stmt ) (";" | NEWLINE)
+          | NEWLINE
+          | "break"     -> break_stmt
+          | "continue"  -> continue_stmt
 
-if_stmt: "if" expr "then" block ["else" block] "endif"
-for_stmt: "for" VAR_NAME "in" expr "do" block "endfor"
+if_stmt: "if" expr "then" block ["else" block] "end_if"
+for_stmt: "for" VAR_NAME "in" expr "do" block "end_for"
+while_stmt: "while" expr "do" block "end_while"
 block: statement+
 
 // --- 論理演算・比較演算の階層 ---
@@ -31,22 +35,29 @@ COMPARISON_OP: ">" | "<" | "==" | "!="
 // --- 算術演算 ---
 ?arrow: sum | arrow "->" sum -> arrow_op
 ?sum: product | sum "+" product -> add | sum "-" product -> sub
-?product: power | product "*" power -> mul | product "/" power -> div
+?product: power
+        | product "*" power -> mul
+		| product "/" power -> div
+		| product "%" power -> mod
+
 ?power: atom | atom "^" power -> pow
 
 // ------------------------------
-?atom: SIGNED_NUMBER    -> number
+?atom: number
      | STRING           -> string_literal
-     | VAR_NAME         -> var_load
-     | BODY_NAME        -> body_load
+	 | FSTRING          -> f_string
      | funccall
      | auxcall
-     | "(" expr ")"     // ここを expr にすることで括弧内の論理演算を許可
-
+     | VAR_NAME         -> var_load
+     | BODY_NAME        -> body_load
+     | "(" expr ")"
      | dot_access
 
 //
-assignment: VAR_NAME "=" expr  -> assign_var
+
+FSTRING.2: /f"[^"]*"/           // FSTRING の優先度を高く設定 (.2)
+
+assignment: VAR_NAME "=" expr   -> assign_var
           | BODY_NAME "=" expr  -> assign_body
 
 dot_access: VAR_NAME "." VAR_NAME
@@ -61,7 +72,14 @@ BODY_NAME: /[A-Z][a-zA-Z0-9_]*/
 STRING: /"[^"]*"/ | /'[^']*'/
 COMMENT: "//" /[^\n]/*
 
-%import common.SIGNED_NUMBER
+?number: FLOAT -> float_num
+       | INT   -> int_num
+
+// 負数に対応した正規表現
+// FLOAT: オプションのマイナス + 数字 + ドット + 数字
+// INT  : オプションのマイナス + 数字
+FLOAT: /-?\d+\.\d+/
+INT:   /-?\d+/
 
 # 空白無視を「改行を含まない空白」に限定する
 %import common.WS_INLINE
