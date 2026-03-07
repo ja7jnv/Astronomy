@@ -15,6 +15,7 @@ from typing import Any, Optional, Union, List
 import numpy as np
 import configparser
 import ephem
+import math
 
 import logging
 logging.basicConfig(
@@ -319,6 +320,21 @@ class SSOInterpreter(Interpreter):
         self.config = SSOSystemConfig()
         self.var_mgr = VariableManager(self.config)
         self.arrow_handler = ArrowOperationHandler(self.config, self.var_mgr)
+        # 組み込み関数のマッピング
+        self.builtins = {
+            "abs": abs,
+            "round": round,
+            "min": min,
+            "max": max,
+            "int": int,
+            "float": float,
+            "sqrt": math.sqrt,
+            "sin": math.sin,
+            "cos": math.cos,
+            "tan": math.tan,
+            "log": math.log,
+            "pow": pow,
+        }
 
         # 設定ファイル読み込み
         self._load_config()
@@ -495,7 +511,18 @@ class SSOInterpreter(Interpreter):
     
     def div(self, tree) -> float:
         return self.visit(tree.children[0]) / self.visit(tree.children[1])
-    
+
+    def mod(self, tree):
+        left = self.visit(tree.children[0])
+        right = self.visit(tree.children[1])
+        return left % right
+
+    def int_num(self, tree):
+        return int(tree.children[0])
+
+    def float_num(self, tree):
+        return float(tree.children[0])
+
     def pow(self, tree) -> float:
         return self.visit(tree.children[0]) ** self.visit(tree.children[1])
     
@@ -584,8 +611,8 @@ class SSOInterpreter(Interpreter):
         
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
-        attr = tree.children[0].value
-        logger.debug(f"funccall: {attr}")
+        func_name = tree.children[0].value
+        logger.debug(f"funccall: {func_name}")
         
         # 引数の処理
         args = []
@@ -593,19 +620,29 @@ class SSOInterpreter(Interpreter):
             child = tree.children[1]
             if hasattr(child, 'data'):
                 args = self.visit(child)
-        
+
+        # 組み込み関数にあるか確認
+        if func_name in self.builtins:
+            # Pythonの関数を呼び出す（可変長引数 *args で渡す）
+            try:
+                return self.builtins[func_name](*args)
+            except TypeError as e:
+                logger.error(f"Function {func_name} argument error: {e}")
+                return None
+
+        # SSO定義関数（今後実装予定）の処理
         # 関数ごとの処理を振り分け
-        return self._dispatch_function(attr, args)
+        return self._dispatch_function(func_name, args)
     
     def _dispatch_function(self, func_name: str, args: List[Any]) -> Any:
         logger.debug(f"_dispatch_function: func_name={func_name}")
-        match func_name:
-            case "Date": return self._handle_date_function(args)
-            case "UTC" : return self._handle_utc_function(args)
-            case "Now" : return self.config.SSOEphem("now")
+        match func_name  :
+            case "Date"  : return self._handle_date_function(args)
+            case "UTC"   : return self._handle_utc_function(args)
+            case "Now"   : return self.config.SSOEphem("now")
             case  f if f in ["Observer", "Mountain"]:
                 return self._handle_location_function(func_name, args)
-            case "Home": return self._handle_home_function()
+            case "Home"  : return self._handle_home_function()
             case "Direction":
                 direction =int(*args)
                 if direction in [4, 8, 16]:
