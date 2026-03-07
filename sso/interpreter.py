@@ -23,6 +23,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class BreakException(Exception): pass
+class ContinueException(Exception): pass
+
 # ===== 変数管理クラス =====
 class VariableManager:
     
@@ -470,10 +473,8 @@ class SSOInterpreter(Interpreter):
     def arrow_op(self, tree) -> str:
         """
         矢印演算子の処理
-        
         Args:
             tree: 構文木
-            
         Returns:
             演算結果
         """
@@ -769,13 +770,88 @@ class SSOInterpreter(Interpreter):
 
         return None
 
+    def for_stmt(self, tree):
+        # 各要素の抽出 (Tokenを除外して Tree か特定の Token を取り出す)
+        # tree.children[0] -> VAR_NAME (Token) - 変数名
+        # tree.children[1] -> expr (Tree) - 繰り返し対象（リストや範囲）
+        # tree.children[2] -> block (Tree) - 実行する中身
+        logger.debug(f"tee.children[0] : {tree.children[0]}")
+        logger.debug(f"tee.children[1] : {tree.children[1]}")
+        logger.debug(f"tee.children[2] : {tree.children[2]}")
+
+        # 名前ベースで安全に取得（インデックスのズレ対策）
+        var_name = str(tree.children[0]) # ループ変数名
+        iterable_node = tree.children[1] # 繰り返し対象のノード
+        block_node = tree.children[2]    # 実行するブロック
+
+        # 繰り返し対象（expr）を評価してリスト等を得る
+        # もし expr が range(10) のような関数なら、その戻り値を取得
+        items_val = self.visit(iterable_node)
+
+        # items が数値（単一の値）だった場合に備えて、イテラブルに変換するガード
+        if isinstance(items_val, (int, float)):
+            items = range(int(items_val))
+        else:
+            items = items_val
+
+        last_result = None
+
+        # Pythonのループで回す
+        for value in items:
+            # インタープリター内の変数管理（シンボルテーブル）に値をセット
+            self.var_mgr.variables[var_name] = float(value)
+            try: # ブロックを実行
+                last_result = self.visit(block_node)
+            except BreakException:
+                break
+            except ContinueException:
+                continue
+
+        return last_result
+
+    def while_stmt(self, tree):
+        # children[0]: expr (条件式)
+        # children[1]: block (実行内容)
+        # ※文法で "while" などをトークン化していない(Treeに含まれない)前提
+        condition_node = tree.children[0]
+        block_node = tree.children[1]
+
+        last_result = None
+
+        # Python の while を使って、条件が真の間ループさせる
+        # self.visit(condition_node) で都度最新の条件結果を評価
+        while bool(self.visit(condition_node)):
+            try:
+                last_result = self.visit(block_node)
+            except BreakException:
+                break  # Pythonのwhileを抜ける
+            except ContinueException:
+                continue  # 次の判定へジャンプ
+
+        return last_result
+
+
     def block(self, tree):
         last_result = None
         for statement in tree.children:
             # statement が Tree (代入文やprint文など) の場合のみ実行
             if isinstance(statement, Tree):
-                last_result = self.visit(statement)
+                res = self.visit(statement)
+                # res が [値, "\n"] のリストで返ってくるので、値だけ取り出す
+                if isinstance(res, list) and len(res) > 0:
+                    last_result = res[0]
+                else:
+                    last_result = res
             else:
                 # Token ("else" や "endif" など) は無視する
                 logger.debug(f"Skipping token in block: {statement}")
         return last_result
+
+
+    def break_stmt(self, tree):
+        raise BreakException()
+
+    def continue_stmt(self, tree):
+        raise ContinueException()
+
+

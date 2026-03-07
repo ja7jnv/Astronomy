@@ -1,9 +1,12 @@
 start: statement*
 
-?statement: (assignment | expr | if_stmt | for_stmt) (";" | NEWLINE) | NEWLINE
+?statement: (assignment | expr | if_stmt | for_stmt | while_stmt ) (";" | NEWLINE) | NEWLINE
+          |  "break"     -> break_stmt
+          |  "continue"  -> continue_stmt
 
-if_stmt: "if" expr "then" block ["else" block] "endif"
-for_stmt: "for" VAR_NAME "in" expr "do" block "endfor"
+if_stmt: "if" expr "then" block ["else" block] "end_if"
+for_stmt: "for" VAR_NAME "in" expr "do" block "end_for"
+while_stmt: "while" expr "do" block "end_while"
 block: statement+
 
 // --- 論理演算・比較演算の階層 ---
