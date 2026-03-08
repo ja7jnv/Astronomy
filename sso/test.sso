@@ -1,0 +1,2 @@
+yuzawa = Observer(39.15, 140.5, 105)
+yuzawa -> Moon

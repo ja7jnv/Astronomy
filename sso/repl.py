@@ -316,9 +316,42 @@ class SSOShell(cmd.Cmd):
         console.print(" ".join(planets))
 
 
+    def execute_script(self, filepath):
+            """スクリプトファイルを読み込んで一括実行する"""
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    self.code_buffer = f.read()
+
+                # Larkのパースエラー（UnexpectedEOF等）回避のため、末尾に改行を保証
+                if not self.code_buffer.endswith("\n"):
+                    self.code_buffer += "\n"
+
+                logger.debug(f"Executing script: {filepath}")
+
+                # 既存の評価・出力ロジック(defaultメソッド)を再利用
+                # 空文字以外を渡すことで default() 内の空行チェックを通過させる
+                self.default("run_script_mode")
+
+            except FileNotFoundError:
+                console.print(f"[bold red]Error:[/bold red] スクリプトファイル '{filepath}' が見つかりません。")
+                sys.exit(1)
+            except Exception as e:
+                console.print(f"[bold red]Error:[/bold red] スクリプトの実行中にエラーが発生しました: {e}")
+                sys.exit(1)
+
 if __name__ == "__main__":
-    try:
-        SSOShell().cmdloop()
-    except KeyboardInterrupt:
-        # Ctrl+C での強制終了をきれいに処理
-        print("\nGoodbye.")
+    if len(sys.argv) > 1:
+        # 引数が指定された場合（スクリプトファイル読み込みモード）
+        script_file = sys.argv[1]
+        try:
+            SSOShell().execute_script(script_file)
+        except KeyboardInterrupt:
+            print("\nScript execution interrupted.")
+            sys.exit(0)
+    else:
+        # 引数がない場合（対話型REPLモード）
+        try:
+            SSOShell().cmdloop()
+        except KeyboardInterrupt:
+            # Ctrl+C での強制終了をきれいに処理
+            print("\nGoodbye.")
