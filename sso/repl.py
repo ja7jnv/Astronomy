@@ -68,7 +68,7 @@ class SSOShell(cmd.Cmd):
 
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
     intro_text = """
-[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]機能確認版 V0.2[/dim]
+[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]機能確認版 V0.3[/dim]
 
     [cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
 
