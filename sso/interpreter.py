@@ -609,7 +609,7 @@ class SSOInterpreter(Interpreter):
                 self.var_mgr.observer[aux_name] = args[0]
                 return self.var_mgr.get_body(aux_name)
 
-        
+    # TODO - return文の位置づけと実装
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
         func_name = tree.children[0].value
