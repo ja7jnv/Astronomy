@@ -761,7 +761,7 @@ class SSOInterpreter(Interpreter):
         func_info = self.user_functions[func_name]
         params = func_info["params"]
         block = func_info["block"]
-        logger.debug(f"execute_user_function: func_name={func_name}, param={param}, block={block}")
+        logger.debug(f"execute_user_function: func_name={func_name}, params={params}, block={block}")
 
         # 引数の数チェック
         if len(args) != len(params):
@@ -769,9 +769,9 @@ class SSOInterpreter(Interpreter):
 
         # 引数を変数にセット
         # TODO - ※ 現在の変数を一時退避するか、スコープを分けないと外側の変数を壊す
-        old_vars = self.variables.copy() # 簡易的な退避（あとでスコープ実装へ）
+        old_vars = self.var_mgr.variables.copy() # 簡易的な退避（あとでスコープ実装へ）
         for name, val in zip(params, args):
-            self.variables[name] = val
+            self.var_mgr.variables[name] = val
 
         # 実行
         result = None
@@ -781,7 +781,7 @@ class SSOInterpreter(Interpreter):
             result = e.value
         finally:
             # 変数テーブルを元に戻す（簡易スコープ）
-            self.variables = old_vars
+            self.var_mgr.variables = old_vars
 
         return result
 
