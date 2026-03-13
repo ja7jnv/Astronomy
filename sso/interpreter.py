@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 class BreakException(Exception): pass
 class ContinueException(Exception): pass
 
+class ReturnException(Exception):
+    def __init__(self, value):
+        self.value = value  # return に渡された評価結果を保持
+
+
 # ===== 変数管理クラス =====
 class VariableManager:
     
@@ -339,6 +344,9 @@ class SSOInterpreter(Interpreter):
 
         # 設定ファイル読み込み
         self._load_config()
+
+        # 関数情報の保持領域
+        self.user_functions = {}
     
     def _load_config(self) -> None:
 
@@ -387,10 +395,8 @@ class SSOInterpreter(Interpreter):
     def assign_var(self, tree) -> str:
         """
         変数への代入
-        
         Args:
             tree: 構文木
-            
         Returns:
             代入結果のメッセージ
         """
@@ -402,10 +408,8 @@ class SSOInterpreter(Interpreter):
     def assign_body(self, tree) -> str:
         """
         Bodyへの代入
-        
         Args:
             tree: 構文木
-            
         Returns:
             代入結果のメッセージ
         """
@@ -609,7 +613,7 @@ class SSOInterpreter(Interpreter):
                 self.var_mgr.observer[aux_name] = args[0]
                 return self.var_mgr.get_body(aux_name)
 
-        
+    # TODO - return文の位置づけと実装
     # ===== 関数呼び出し =====
     def funccall(self, tree) -> Any:
         func_name = tree.children[0].value
@@ -631,8 +635,11 @@ class SSOInterpreter(Interpreter):
                 logger.error(f"Function {func_name} argument error: {e}")
                 return None
 
-        # SSO定義関数（今後実装予定）の処理
-        # 関数ごとの処理を振り分け
+        # SSOユーザ定義関数の処理
+        if func_name in self.user_functions:
+            return self.execute_user_function(func_name, args)
+
+        # 内部関数ごとの処理を振り分け
         return self._dispatch_function(func_name, args)
     
     def _dispatch_function(self, func_name: str, args: List[Any]) -> Any:
@@ -749,6 +756,35 @@ class SSOInterpreter(Interpreter):
         phase.draw()
 
         return
+
+    def execute_user_function(self, func_name, args):
+        func_info = self.user_functions[func_name]
+        params = func_info["params"]
+        block = func_info["block"]
+        logger.debug(f"execute_user_function: func_name={func_name}, params={params}, block={block}")
+
+        # 引数の数チェック
+        if len(args) != len(params):
+            raise TypeError(f"{func_name}() takes {len(params)} arguments but {len(args)} were given")
+
+        # 引数を変数にセット
+        # TODO - ※ 現在の変数を一時退避するか、スコープを分けないと外側の変数を壊す
+        old_vars = self.var_mgr.variables.copy() # 簡易的な退避（あとでスコープ実装へ）
+        for name, val in zip(params, args):
+            self.var_mgr.variables[name] = val
+
+        # 実行
+        result = None
+        try:
+            self.visit(block)
+        except ReturnException as e:
+            result = e.value
+        finally:
+            # 変数テーブルを元に戻す（簡易スコープ）
+            self.var_mgr.variables = old_vars
+
+        return result
+
     
 
     # ===== その他 =====
@@ -760,10 +796,8 @@ class SSOInterpreter(Interpreter):
     def start(self, tree) -> Optional[Any]:
         """
         開始ノード
-        
         Args:
             tree: 構文木
-            
         Returns:
             最後のstatementの実行結果
         """
@@ -773,6 +807,39 @@ class SSOInterpreter(Interpreter):
             if not isinstance(res, Token):
                 last_result = res
         return last_result
+
+
+    def f_string(self, tree):
+        # tree.children[0] が Token('FSTRING', 'f"..."')
+        token_val = str(tree.children[0])
+        raw_content = token_val[2:-1] # f" と " を削る
+        # 1. 囲みの f" と " を除去
+        #raw_content = str(tree.children).strip('f"')
+
+        # 2. {...} 内を解析して置換する関数
+        def replace_match(match):
+            inner = match.group(1)  # 例: "a:3.2f"
+
+            # 変数名と書式指定子に分ける
+            if ":" in inner:
+                var_name, fmt = inner.split(":", 1)
+                fmt = ":" + fmt  # format関数用に ":" を戻す
+            else:
+                var_name, fmt = inner, ""
+
+            # 変数テーブルから値を取得
+            val = self.var_mgr.variables.get(var_name.strip(), "N/A")
+
+            # Pythonの format 関数に丸投げする (例: format(1.2345, "3.2f"))
+            try:
+                return format(val, fmt.strip(":"))
+            except Exception as e:
+                return f"{{Error:{e}}}"
+
+        # 文字列内の {...} をすべて置換
+        # パターン: { の後に "}" 以外の文字が続くもの
+        result = re.sub(r"\{(.*?)\}", replace_match, raw_content)
+        return result
 
 
     # ===== 制御構造 =====
@@ -892,37 +959,27 @@ class SSOInterpreter(Interpreter):
     def continue_stmt(self, tree):
         raise ContinueException()
 
+    def return_stmt(self, tree):
+        # return の後の expr を評価
+        value = self.visit(tree.children[0]) if tree.children else None
+        raise ReturnException(value)
 
+    def def_stmt(self, tree):
+        # tree.children[0]: 関数名
+        # tree.children[1]: 引数名のリスト (arg_params)
+        # tree.children[2]: 実行内容 (block)
+        func_name = str(tree.children[0])
+        params_node = tree.children[1]
+        block_node = tree.children[2]
 
-    def f_string(self, tree):
-        # tree.children[0] が Token('FSTRING', 'f"..."')
-        token_val = str(tree.children[0])
-        raw_content = token_val[2:-1] # f" と " を削る
-        # 1. 囲みの f" と " を除去
-        #raw_content = str(tree.children).strip('f"')
+        # 引数名のリスト化（例: ['x', 'y']）
+        param_names = [str(p) for p in params_node.children]
 
-        # 2. {...} 内を解析して置換する関数
-        def replace_match(match):
-            inner = match.group(1)  # 例: "a:3.2f"
+        # ユーザー定義関数テーブルに保存（この時点では visit しない）
+        self.user_functions[func_name] = {
+            "params": param_names,
+            "block": block_node
+        }
 
-            # 変数名と書式指定子に分ける
-            if ":" in inner:
-                var_name, fmt = inner.split(":", 1)
-                fmt = ":" + fmt  # format関数用に ":" を戻す
-            else:
-                var_name, fmt = inner, ""
-
-            # 変数テーブルから値を取得
-            val = self.var_mgr.variables.get(var_name.strip(), "N/A")
-
-            # Pythonの format 関数に丸投げする (例: format(1.2345, "3.2f"))
-            try:
-                return format(val, fmt.strip(":"))
-            except Exception as e:
-                return f"{{Error:{e}}}"
-
-        # 文字列内の {...} をすべて置換
-        # パターン: { の後に "}" 以外の文字が続くもの
-        result = re.sub(r"\{(.*?)\}", replace_match, raw_content)
-        return result
+        return None
 
