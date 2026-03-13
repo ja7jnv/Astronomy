@@ -1,0 +1,10 @@
+yuzawa = Observer(39.15, 140.5, 105)
+date = Date("2026/1/1 0:0:0")
+
+def eclipse(place, date) do
+    Time = date
+    Sun -> place -> Moon
+end_def
+
+eclipse(yuzawa, date)
+
