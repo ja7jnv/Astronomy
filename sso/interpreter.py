@@ -1,5 +1,7 @@
 """
 sso interpreter : Lark Interpreterを用いたDSL実行エンジン
+- 変数管理: VariableManagerクラスで変数、Body、Observerを管理
+- 矢印演算子処理: ArrowOperationHandlerクラスで矢印演算子のパターンを処理
 """
 from lark.visitors import Interpreter
 from lark import Token
@@ -10,7 +12,7 @@ from classes import console
 from formatter  import FormatterFactory
 from calculation import (CelestialCalculator, EarthCalculator, SSOCalculator) 
 from utility import MoonPhase
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Optional, Union, List
 import numpy as np
 import configparser
@@ -30,7 +32,7 @@ class ContinueException(Exception): pass
 
 class ReturnException(Exception):
     def __init__(self, value):
-        self.value = value  # return に渡された評価結果を保持
+        self.value = value  # return に渡された評価結果
 
 
 # ===== 変数管理クラス =====
@@ -322,7 +324,8 @@ class ArrowOperationHandler:
 # ===== Interpreterクラス =====
 class SSOInterpreter(Interpreter):
     
-    def __init__(self):
+    def __init__(self, lark_instance):
+        self.parser = lark_instance  # REPLから受け取ったパーサーを保持
         self.config = SSOSystemConfig()
         self.var_mgr = VariableManager(self.config)
         self.arrow_handler = ArrowOperationHandler(self.config, self.var_mgr)
@@ -660,7 +663,8 @@ class SSOInterpreter(Interpreter):
                 return args
             case "Phase": return self._handle_phase_function(args)
             case "Print": return console.print(args)
-            case "print": return console.print(args)
+            case "print": return console.print(' '.join(map(str,args)))
+            case "zone" : return timezone(timedelta(hours=float(*args)))
             case _      :
                 # その他のephem関数
                 logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
@@ -981,5 +985,26 @@ class SSOInterpreter(Interpreter):
             "block": block_node
         }
 
+        return None
+
+    def import_stmt(self, tree):
+        filename = str(tree.children[0]).strip('"')
+        logger.debug(f"import: {filename}")
+
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                code = f.read()
+
+            # self.parser は外部から渡しておくかクラス内に保持しておく必要がある
+            new_tree = self.parser.parse(code)
+
+            # 現在のインタープリター自身で実行（visit）
+            # これにより、このファイル内での def や変数が現在の self に取り込まれる
+            return self.visit(new_tree)
+
+        except FileNotFoundError:
+            logger.error(f"Import Error: File '{filename}' not found.")
+        except Exception as e:
+            logger.error(f"Import Error in '{filename}': {e}")
         return None
 

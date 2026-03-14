@@ -1,8 +1,16 @@
+"""
+補完機能を提供するモジュール。
+prompt_toolkitのWordCompleterを使用して、SSOスクリプトのキーワードや天体名を補完します。
+"""
 from prompt_toolkit.completion import WordCompleter
 sso_completer = WordCompleter([
     'Date', 'Direction', 'Observer', 'Now',             # 上位ほど優先順位が高い
     'Time', 'Here', 'Log', 'Echo',
-    'Body', 'Home',
+    'Body', 'Home', 'zone',
+    'if', 'then', 'else', 'end_if',
+    'for', 'in', 'do', 'end_for',
+    'while', 'end_while',
+    'def', 'end_def',
     ### 天体 ###
     'Sun', 'Mercury', 'Venus',
     'Earth', 'Moon',
@@ -12,6 +20,7 @@ sso_completer = WordCompleter([
     'Uranus',
     'Neptune',
     'Pluto',
+    'star',
     ### ephem function ###
     'previous_new_moon', 'next_new_moon',
     'previous_first_quarter_moon', 'next_first_quarter_moon',
@@ -23,7 +32,8 @@ sso_completer = WordCompleter([
     'previous_equinox', 'next_equinox',
     'previous_vernal_equinox', 'next_vernal_equinox',
     'previous_autumnal_equinox', 'next_autumnal_equinox',
-    'city', 'delta_t', 'julian_date', 'degrees', 'hours'
+    'city', 'delta_t', 'julian_date', 'degrees',
+    'to_timezone', 'localtime', 'hour', 'hours'
 ], ignore_case=True) # 大文字小文字を区別しない設定
 
 """

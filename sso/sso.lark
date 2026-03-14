@@ -6,6 +6,7 @@ start: statement*
 		  | for_stmt
 		  | while_stmt
 		  | def_stmt
+		  | import_stmt
 		  | return_stmt) (";" | NEWLINE)
           | NEWLINE
           | "break"     -> break_stmt
@@ -16,6 +17,7 @@ for_stmt: "for" VAR_NAME "in" expr "do" block "end_for"
 while_stmt: "while" expr "do" block "end_while"
 def_stmt: "def" (BODY_NAME | VAR_NAME) "(" [argparm] ")" "do" block "end_def"
 return_stmt: "return" [expr]
+import_stmt: "import" STRING
 block: statement+
 
 // --- 論理演算・比較演算の階層 ---

@@ -1,2 +1,6 @@
 #!/usr/bin/env bash
-python repl.py
+# Run the REPL for the SSO service. Pass in the path to the .env file as an argument.
+# Example: ./run_repl.sh .env
+# Make sure to have the .env file in the same directory as this script or provide the correct path.
+#
+python repl.py $1

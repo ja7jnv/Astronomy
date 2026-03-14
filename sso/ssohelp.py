@@ -1,3 +1,6 @@
+"""
+SSOのコマンドや天体名のガイドを提供するモジュール
+"""
 mag_guide = [
         "[bold bright_white]夜空で非常に明るく輝く[/bold bright_white]", # -等星
         "[bright_white]夜空で明るく輝く[/bright_white]",                 # 0等星

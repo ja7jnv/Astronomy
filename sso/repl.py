@@ -1,3 +1,10 @@
+"""
+Solar System Observer (SSO) DSL - REPL Shell
+Copyright (C) 2026 Shigeaki Tendo
+このファイルは、SSO DSLの対話型シェル（REPL）を実装しています。
+ユーザーはこのシェル上でSSO DSLのコマンドを入力して、リアルタイムで結果を得ることができます。
+"""
+version = "V0.4"
 import logging # ログの設定
 logging.basicConfig(
 level=logging.WARNING, # 出力レベル (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -67,8 +74,8 @@ class SSOShell(cmd.Cmd):
     colored_prompt = HTML('<ansicyan>sso</ansicyan><ansigray>></ansigray> ')
 
     intro = "Solar System Observer (SSO) DSL - Interpreter Mode\n(Type 'exit' to quit)"
-    intro_text = """
-[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]機能確認版 V0.3[/dim]
+    intro_text = f"""
+[bold magenta]SSO 太陽系観測シミュレータ[/bold magenta] [dim]機能確認版 {version} [/dim]
 
     [cyan]Type 'help' for commands, 'exit' to quit.[/cyan]
 
@@ -92,7 +99,8 @@ class SSOShell(cmd.Cmd):
             with open("sso.lark", "r", encoding="utf-8") as f:
                 grammar = f.read()
             self.parser = Lark(grammar, parser='lalr')
-            self.interp = SSOInterpreter()
+            #self.interp = SSOInterpreter()
+            self.interp = SSOInterpreter(self.parser)
 
         except FileNotFoundError:
             print("Error: 'sso.lark' file not found.")
@@ -249,6 +257,11 @@ class SSOShell(cmd.Cmd):
         # os.system を使用して、入力されたコマンドを直接実行
         os.system(line)
         self.code_buffer=""
+
+    def do_version(self, arg):
+        """バージョ情報の表示"""
+        self.code_buffer =""
+        print(f"{version}")
 
     def do_hello(self, arg):
         """Hello ! とご挨拶します"""

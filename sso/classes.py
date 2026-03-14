@@ -1,6 +1,9 @@
 """
 このモジュール内のクラスは、すべてUTCで処理する。
 JTSや他の地方時は、その変換メソッド以外では一切考慮しない。
+- SSOSystemConfig: システム全体の設定を管理するクラス
+- SSOObserver: 観測地を表すクラス
+- SSOEarth: 地球を表すクラス。月食の計算など、地球に関連する機能を実装する。
 
 """
 import ephem
@@ -169,11 +172,12 @@ class SSOSystemConfig:
         self.env["Time"] = value
         return f"Observation date_time: {self.env['Time']} [UTC]"
     
-    def SSOEphem(self, attr: str, value=None):
+    #def SSOEphem(self, attr: str, value=None): TODO - 機能確認ができたら消す！
+    def SSOEphem(self, attr: str, *args):
         """ephemの関数やクラスを呼び出す"""
-        logger.debug(f"SSOEphem: ephem.{attr}({value})")
+        logger.debug(f"SSOEphem: ephem.{attr}({args})")
         
-        args = [value] if value is not None else []
+        #args = [value] if value is not None else []
         target = getattr(ephem, attr)(*args)
         logger.debug(f"SSOEphem: ephem.{attr}({args}) -> {target}")
         

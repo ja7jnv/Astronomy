@@ -2,8 +2,25 @@ yuzawa = Observer(39.15, 140.5, 105)
 date = Date("2026/1/1 0:0:0")
 
 def eclipse(place, date) do
+	print("eclipse test.")
+
     Time = date
     Sun -> place -> Moon
+
+	n = next_full_moon(Now())
+
+	if n > Date("2026/4/1 0:0:0") then
+		print("次の満月は", f"{n}", "になります。")
+		j = to_timezone(n, zone(Tz))
+		print(f"日本時間では {j} になります。")
+		print("April")
+		return "4月"
+	else
+		print(n)
+		print("March")
+		return "3月"
+	end_if
+
 end_def
 
 eclipse(yuzawa, date)
