@@ -43,6 +43,13 @@ class VariableManager:
         self.bodies = {}
         self.observer = {}
         self.config = config
+        self.builtins = {
+                "math_pi"   : math.pi,
+                "math_e"    : math.e,
+                "math_tau"  : math.tau,
+                "math_inf"  : math.inf,
+                "math_nan"  : math.nan,
+        }
     
     def set_variable(self, name: str, value: Any) -> None:
         """変数を設定"""
@@ -51,7 +58,12 @@ class VariableManager:
     
     def get_variable(self, name: str, default: Any = 0.0) -> Any:
         """変数を取得"""
-        value = self.variables.get(name, default)
+        if name in self.variables:
+            value = self.variables.get(name)
+        elif name in self.builtins:
+            value = self.builtins.get(name)
+        else:
+            value = default
         logger.debug(f"Variable get: {name} = {value}")
         return value
     
@@ -271,11 +283,9 @@ class ArrowOperationHandler:
     def _handle_zenith(self, observer: ephem.Observer, target_name: str) -> str:
         """
         天頂（南中）の計算
-        
         Args:
             observer: 観測地
             target_name: 天体名
-            
         Returns:
             南中情報の文字列
         """
@@ -331,18 +341,27 @@ class SSOInterpreter(Interpreter):
         self.arrow_handler = ArrowOperationHandler(self.config, self.var_mgr)
         # 組み込み関数のマッピング
         self.builtins = {
-            "abs": abs,
-            "round": round,
-            "min": min,
-            "max": max,
-            "int": int,
-            "float": float,
-            "sqrt": math.sqrt,
-            "sin": math.sin,
-            "cos": math.cos,
-            "tan": math.tan,
-            "log": math.log,
-            "pow": pow,
+            "abs"   : abs,
+            "round" : round,
+            "min"   : min,
+            "max"   : max,
+            "int"   : int,
+            "float" : float,
+            "sqrt"  : math.sqrt,
+            "exp"   : math.exp,
+            "sin"   : math.sin,
+            "cos"   : math.cos,
+            "tan"   : math.tan,
+            "asin"  : math.asin,
+            "acos"  : math.acos,
+            "atan"  : math.atan,
+            "atan2" : math.atan2,
+            "log"   : math.log,
+            "degrees": math.degrees,
+            "radians": math.radians,
+            "dist"  : math.dist,
+            "pow"   : pow,
+            "range" : range,
         }
 
         # 設定ファイル読み込み

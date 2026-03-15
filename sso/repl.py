@@ -81,7 +81,7 @@ class SSOShell(cmd.Cmd):
 
     Copyright (C) 2026 Shigeaki Tendo
     """
-    continue_prompt = "... "
+    continue_prompt = ".... "
 
     def __init__(self):
         super().__init__()
