@@ -347,6 +347,7 @@ class SSOInterpreter(Interpreter):
             "max"   : max,
             "int"   : int,
             "float" : float,
+            "type"  : type,
             "sqrt"  : math.sqrt,
             "exp"   : math.exp,
             "sin"   : math.sin,

@@ -12,7 +12,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta, time
 from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
-from calculation import CelestialCalculator, EarthCalculator
+from calculation import CelestialCalculator, EarthCalculator, Position
 from classes  import Constants
 
 import logging
@@ -84,7 +84,7 @@ class BodyPosition:
         return res
 
                 
-    def format_position(self, body_name, position_data: Dict[str, float]) -> str:
+    def format_position(self, body_name, position_data: Position) -> str:
         """
         位置情報のフォーマット
         Args:
@@ -92,27 +92,27 @@ class BodyPosition:
         Returns:
             フォーマットされた文字列
 m       """
-        az = position_data['azimuth']
+        az = position_data.azimuth
         au = "天文単位AU: 太陽と地球の平均距離 1AU ≒ 1.5 億Km"
-        al = position_data.get('altitude')
+        al = position_data.altitude
         al_guide = self.altitude_visible(al)
 
         lines = [ # TODO - 表示桁合わせ必要
             f"[bold gold3]観測日時の{body_name}の情報[/bold gold3]",
             f"方位  : {f'{az:.2f}°':<9}  {self.directions(az,self.config.env.get("Direction", 8))}",
             f"高度  : {f'{al:.2f}°':<9}  {al_guide}",
-            f"距離  : {f'{position_data['distance']:.4f} AU':<9}  {au}"
+            f"距離  : {f'{position_data.distance:.4f} AU':<9}  {au}"
         ]
         
         arcmin = "分角arcmin: 1°= 60 arcmin"
 
         if body_name == "月":
-            age = position_data.get("age", 15.0)
+            age = position_data.age
             phase = self._get_moon_phase(age)
             lines.append(f"月齢  : {f'{age:.2f}':<9}  月の形: {phase}  [観測時]")
-            lines.append(f"輝面比: {f'{position_data['phase']:.2f} %':<9}")
+            lines.append(f"輝面比: {f'{position_data.phase:.2f} %':<9}")
         if body_name in ("月", "太陽"):
-            lines.append(f"視直径: {f'{position_data['diameter']:.2f} arcmin':<9}  {arcmin}")
+            lines.append(f"視直径: {f'{position_data.diameter:.2f} arcmin':<9}  {arcmin}")
 
         result = "\n".join(lines)
         return result
@@ -297,9 +297,9 @@ class PlanetFormatter(CelestialBodyFormatter):
         result += f"星座  : [light_slate_blue]{position.get('constellation')}[/light_slate_blue] にいます\n"
         
         # 等級（あれば）
-        mag = position.get('magnitude')
+        mag = position.magnitude
         mag_guide = self._get_magnitude_guideline(mag)
-        result += f"等級  : {position.get('magnitude'):.1f}  {mag_guide}\n"
+        result += f"等級  : {position.magnitude:.1f}  {mag_guide}\n"
         result += "\n"
         
         # 惑星の出入り
