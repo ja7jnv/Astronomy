@@ -44,8 +44,8 @@ class VariableManager:
         self.observer = {}
         self.config = config
         self.builtins = {
-                "math_pi"   : math.pi,
                 "math_e"    : math.e,
+                "math_pi"   : math.pi,
                 "math_tau"  : math.tau,
                 "math_inf"  : math.inf,
                 "math_nan"  : math.nan,
@@ -159,7 +159,7 @@ class ArrowOperationHandler:
             # ディフォルトの日付を取得
             default_date = self.config.env.get("Time", self.config.SSOEphem("now"))
 
-            # Observer -> Body(date) で日付指定がある場合はdateを優先
+            # Observer -> Body[date] で日付指定がある場合はdateを優先
             target_name = getattr(target, "name", "Body")
             obs.date = self.var_mgr.observer.get(target.name, default_date)
             #               ^^^^^^^^^^^^^^^^ここに日付指定が入っている

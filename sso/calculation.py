@@ -19,6 +19,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class Position:
+    def __init__(self, 
+                 altitude,
+                 azimuth,
+                 distance=None,
+                 magnitude=None,
+                 constellation=None,
+                 phase=None,
+                 illumination=None,
+                 age=None,
+                 diameter=None):
+
+         self.altitude  = altitude
+         self.azimuth   = azimuth   
+         self.distance  = distance  
+         self.magnitude = magnitude 
+         self.phase     = phase
+         self.illumination= illumination
+         self.age       = age
+         self.diameter  = diameter
+        
 class CelestialCalculator:
     constellation = {
             # 星座の学名: 星座名（日本語）
@@ -41,11 +62,15 @@ class CelestialCalculator:
         self.body = body
         self.config = config
 
-    def calculate_current_position(self) -> dict:
+    def calculate_current_position(self) -> Position:
         self.body.compute(self.observer)
+
         altitude = math.degrees(self.body.alt)
         azimuth = math.degrees(self.body.az)
         distance = self.body.earth_distance  # 天体までの距離（天文単位）
+
+        # オプション項目の初期化
+        magnitude = constellation = phase = age = illumination = diameter = None
 
         match self.body.__class__.__name__:
             case "Moon":
@@ -61,17 +86,15 @@ class CelestialCalculator:
                 conste = ephem.constellation(self.body)[1]
                 constellation = self.constellation.get(conste, conste)
                 
-        return {
-            "altitude": altitude,
-            "azimuth": azimuth,
-            "distance": distance,
-            "magnitude": magnitude if 'magnitude' in locals() else None,
-            "constellation": constellation if 'constellation' in locals() else None,
-            "phase": phase if 'phase' in locals() else None,
-            "illumination": illumination if 'illumination' in locals() else None,
-            "age": age if 'age' in locals() else None,
-            "diameter": diameter if 'diameter' in locals() else None
-        }
+        return Position(altitude, azimuth,
+               distance = distance,
+               magnitude = magnitude,
+               constellation = constellation,
+               phase = phase,
+               illumination = illumination,
+               age = age,
+              diameter = diameter
+        )
 
 
     def get_local_midnight(self) -> datetime:
