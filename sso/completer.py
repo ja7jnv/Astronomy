@@ -32,6 +32,7 @@ sso_completer = WordCompleter([
     'previous_equinox', 'next_equinox',
     'previous_vernal_equinox', 'next_vernal_equinox',
     'previous_autumnal_equinox', 'next_autumnal_equinox',
+    'constellation', 'separation', 'Equatorial', 'Galactic',
     'city', 'delta_t', 'julian_date', 'degrees',
     'to_timezone', 'localtime', 'hour', 'hours'
 ], ignore_case=True) # 大文字小文字を区別しない設定
