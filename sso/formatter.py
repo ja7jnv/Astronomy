@@ -294,7 +294,7 @@ class PlanetFormatter(CelestialBodyFormatter):
         result += formatter.format_position(planet_name, position) + "\n"
         
         # 星座
-        result += f"星座  : [light_slate_blue]{position.get('constellation')}[/light_slate_blue] にいます\n"
+        result += f"星座  : [light_slate_blue]{position.constellation}[/light_slate_blue] にいます\n"
         
         # 等級（あれば）
         mag = position.magnitude

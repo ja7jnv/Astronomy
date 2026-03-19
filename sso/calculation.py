@@ -35,13 +35,14 @@ class Position:
          self.azimuth   = azimuth   
          self.distance  = distance  
          self.magnitude = magnitude 
+         self.constellation = constellation
          self.phase     = phase
          self.illumination= illumination
          self.age       = age
          self.diameter  = diameter
         
 class CelestialCalculator:
-    constellation = {
+    constellation_tbl = {
             # 星座の学名: 星座名（日本語）
             "Aries"     : "おひつじ座 ♈",
             "Taurus"    : "おうし座 ♉",
@@ -84,7 +85,7 @@ class CelestialCalculator:
                 # 惑星の場合
                 magnitude = self.body.mag
                 conste = ephem.constellation(self.body)[1]
-                constellation = self.constellation.get(conste, conste)
+                constellation = self.constellation_tbl.get(conste, conste)
                 
         return Position(altitude, azimuth,
                distance = distance,
