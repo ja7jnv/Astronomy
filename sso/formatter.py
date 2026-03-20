@@ -26,6 +26,7 @@ class BodyPosition:
     """天体の情報を整形して出力するクラス"""
     
     def __init__(self, config):
+        logger.debug(f"BodyPosition.__init__: config={config}")
         self.config = config
     
     @staticmethod
@@ -33,6 +34,7 @@ class BodyPosition:
         """
         方位角(0〜360未満)を8方位の文字列に変換する
         """
+        logger.debug(f"BodyPosition.get_8direction: degree={degree}")
         # 360度以上の入力を考慮して調整
         degree = float(degree) % 360
 
@@ -53,6 +55,7 @@ class BodyPosition:
 
         return: 東西南北, 中間方位
         """
+        logger.debug(f"BodyPosition.directions: degree={degree}, intermediate={intermediate}")
 
         directions_4 = ["北", "東", "南", "西"]
         directions_8 = ["北", "北東", "東", "南東",
@@ -75,6 +78,7 @@ class BodyPosition:
             raise ValueError("intermediate must be 4, 8, or 16")
 
     def altitude_visible(self, alt: float) -> str:
+        logger.debug(f"BodyPosition.altitude_visible: alt={alt}")
         match alt:
             case h if h <= 0:                 res = "地球の裏側にいます"
             case h if (h > 0) and (h < 10):   res = "地平線ギリギリにいます"
@@ -92,6 +96,7 @@ class BodyPosition:
         Returns:
             フォーマットされた文字列
 m       """
+        logger.debug(f"BodyPosition.format_position: body_name={body_name}, position_data={position_data}")
         az = position_data.azimuth
         au = "天文単位AU: 太陽と地球の平均距離 1AU ≒ 1.5 億Km"
         al = position_data.altitude
@@ -118,6 +123,7 @@ m       """
         return result
 
     def _get_moon_phase(self, age: float) -> str:
+        logger.debug(f"BodyPosition._get_moon_phase: age={age}")
         # 北半球基準の並び
         phase = ('🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘')
 
@@ -148,7 +154,7 @@ m       """
         Returns:
             フォーマットされた文字列
         """
-        logger.debug("MoonPosition: format_event")
+        logger.debug(f"BodyPosition.format_events: body_name={body_name}, rise_data={rise_data}, transit_data={transit_data}, set_data={set_data}, age={age}")
         rise_time, rise_az = rise_data
         transit_time, transit_alt = transit_data
         set_time, set_az = set_data
@@ -189,7 +195,6 @@ m       """
         return "\n".join(lines)
     
     def _format_event_time(self, event_time: Optional[Any]) -> str:
-        logger.debug(f"_format_event_time: {event_time}")
         """
         イベント時刻の文字列変換
         Args:
@@ -197,6 +202,7 @@ m       """
         Returns:
             フォーマットされた時刻文字列
         """
+        logger.debug(f"BodyPosition._format_event_time: event_time={event_time}")
         if event_time is None:
             return "--:-- (なし)"
         elif event_time == Constants.EVENT_ALWAYS_UP:
@@ -212,6 +218,7 @@ class CelestialBodyFormatter(ABC):
     """天体情報フォーマッターの抽象基底クラス"""
     
     def __init__(self, config):
+        logger.debug(f"CelestialBodyFormatter.__init__: config={config}")
         self.config = config
     
     @abstractmethod
@@ -230,6 +237,7 @@ class CelestialBodyFormatter(ABC):
     
     def format_observation_time(self, observer: ephem.Observer) -> str:
         """観測日時の共通フォーマット"""
+        logger.debug(f"CelestialBodyFormatter.format_observation_time: observer={observer}")
         result  = ""
         result += f"観測日時：{self.config.fromUTC(observer.date)}\n"
         result += f"観測地　：緯度={observer.lat}  経度={observer.lon}  標高={observer.elevation:.1f} m\n\n"
@@ -242,6 +250,7 @@ class MoonFormatter(CelestialBodyFormatter):
     
     def format(self, observer: ephem.Observer, body: ephem.Moon, position: Position) -> str:
         """月の情報を整形"""
+        logger.debug(f"MoonFormatter.format: observer={observer}, body={body}, position={position}")
 
         # 観測日時
         result = self.format_observation_time(observer)
@@ -269,6 +278,7 @@ class PlanetFormatter(CelestialBodyFormatter):
 
     def format(self, observer: ephem.Observer, body: ephem.Body, position: Position) -> str:
         """惑星の情報を整形"""
+        logger.debug(f"PlanetFormatter.format: observer={observer}, body={body}, position={position}")
         result = self.format_observation_time(observer)
         
         planet_eng = getattr(body, 'name')
@@ -301,6 +311,7 @@ class PlanetFormatter(CelestialBodyFormatter):
 
     # 等級ガイドラインの編集
     def _get_magnitude_guideline(self, mag:float) ->str:
+        logger.debug(f"PlanetFormatter._get_magnitude_guideline: mag={mag}")
         from ssohelp import mag_guide
         return mag_guide[ min(int(mag) + 1 if int(mag) > 0 else 0, 8) ]
         """
@@ -319,6 +330,7 @@ class SunFormatter(CelestialBodyFormatter):
     
     def format(self, observer: ephem.Observer, body: ephem.Sun, position: Position) -> str:
         """太陽の情報を整形"""
+        logger.debug(f"SunFormatter.format: observer={observer}, body={body}, position={position}")
         result = self.format_observation_time(observer)
         
         formatter = BodyPosition(self.config)
@@ -340,7 +352,7 @@ class earthFormatter(CelestialBodyFormatter):
     """地上フォーマッター"""
     
     def format(self, obs1: ephem.Observer, obs2: ephem.Observer, position: Position) -> str:
-        logger.debug(f"earthForamatter:")
+        logger.debug(f"earthFormatter.format: obs1={obs1}, obs2={obs2}, position={position}")
 
         result = f"2地点間の距離: {position.distance:.2f} km\n"
         result = result + f"方位角 (Azimuth): {position.azimuth:.2f}°\n"
@@ -360,6 +372,7 @@ class FormatterFactory:
         Returns:
             適切なフォーマッター
         """
+        logger.debug(f"FormatterFactory.create_formatter: body_type={body_type}, config={config}")
         formatters = {
             ephem.Observer: earthFormatter,
             ephem.Moon: MoonFormatter,
@@ -388,19 +401,20 @@ class FormatterFactory:
         Returns:
             フォーマットされた文字列
         """
-        logger.debug(f"reformat:\nbody:{body}\ntarget:{target}")
+        logger.debug(f"FormatterFactory.reformat: body={body}, target={target}, position={position}, config={config}")
 
         match body:
             case ephem.Observer():
                 if target is None:
-                    return reformat_observer(body)
+                    return FormatterFactory.reformat_observer(body)
                 else: # ファクトリーを使って適切なフォーマッターを取得
-                    formatter = FormatterFactory.create_formatter(type(target), config or self)
+                    formatter = FormatterFactory.create_formatter(type(target), config)
                     return formatter.format(body, target, position=position)
 
             case ephem.Body(): # 天体単体の場合
-                formatter = FormatterFactory.create_formatter(type(body), config or self)
-                return formatter.format(self.env["Here"], body, position=position)
+                formatter = FormatterFactory.create_formatter(type(body), config)
+                # configの環境設定 Here を利用する想定
+                return formatter.format(config.env["Here"], body, position=position)
 
             case _:
                 return None
@@ -409,7 +423,10 @@ class FormatterFactory:
     @staticmethod
     def reformat_observer(body: ephem.Observer) -> str:
         """観測地情報を整形"""
-        value = f"\n観測日時：{self.fromUTC(body.date)}"
+        logger.debug(f"FormatterFactory.reformat_observer: body={body}")
+        # Note: self.fromUTC が参照できないため、Factory経由の呼び出しには注意が必要
+        # ここでは元コードのロジックを尊重
+        value = f"\n観測日時：{body.date}"
         value += f"\n緯度：{body.lat}"
         value += f"\n経度：{body.lon}"
         value += f"\n標高：{body.elevation}"
