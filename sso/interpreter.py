@@ -153,7 +153,8 @@ class ArrowOperationHandler:
         """
 
         # パターン1: Observer -> Body : 標準パターン
-        if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Body):
+        if isinstance(obs, ephem.Observer) and isinstance(target, (ephem.Body, ephem.PlanetMoon)):
+
             logger.debug("dispatch_pattern: 1. Observer -> Body")
 
             # ディフォルトの日付を取得
@@ -245,6 +246,11 @@ class ArrowOperationHandler:
                 console.print("")
 
             return res
+
+        # 非該当の処理
+        console.print(f"未サポートの機能: obs={obs}, target={target}")
+        return None
+
 
     def _split_date(self, val):
         if val is None:

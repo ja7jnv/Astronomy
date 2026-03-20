@@ -75,7 +75,8 @@ class CelestialCalculator:
         self.body.compute(self.observer)        # 観測時の状態を計算
         altitude    = math.degrees(self.body.alt)
         azimuth     = math.degrees(self.body.az)
-        distance    = self.body.earth_distance  # 天体までの距離（天文単位）
+        distance    = getattr(self.body, 'earth_distance', None)
+        #distance    = self.body.earth_distance  # 天体までの距離（天文単位）
 
         # オプション項目の初期化
         magnitude = constellation = phase = age = age_noon = illumination = diameter = None
@@ -90,9 +91,10 @@ class CelestialCalculator:
                 diameter = self.body.size / 60.0  # arcminutes to degrees
             case _:
                 # 惑星の場合
-                magnitude = self.body.mag
-                conste = ephem.constellation(self.body)[1]
-                constellation = self.constellation_tbl.get(conste, conste)
+                if isinstance(self.body, ephem.Planet):
+                    magnitude = self.body.mag
+                    conste = ephem.constellation(self.body)[1]
+                    constellation = self.constellation_tbl.get(conste, conste)
                 
         # 出・南中・入の計算（全天体共通）
         #
