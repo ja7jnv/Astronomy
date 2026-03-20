@@ -24,22 +24,30 @@ class Position:
                  altitude,
                  azimuth,
                  distance=None,
+                 rising=None,
+                 transit=None,
+                 setting=None,
                  magnitude=None,
-                 constellation=None,
                  phase=None,
-                 illumination=None,
                  age=None,
-                 diameter=None):
+                 age_noon=None,
+                 diameter=None,
+                 illumination=None,
+                 constellation=None):
 
          self.altitude  = altitude
          self.azimuth   = azimuth   
          self.distance  = distance  
+         self.rising    = rising
+         self.transit   = transit
+         self.setting   = setting
          self.magnitude = magnitude 
-         self.constellation = constellation
          self.phase     = phase
-         self.illumination= illumination
          self.age       = age
+         self.age_noon  = age_noon
          self.diameter  = diameter
+         self.illumination= illumination
+         self.constellation = constellation
         
 class CelestialCalculator:
     constellation_tbl = {
@@ -64,14 +72,13 @@ class CelestialCalculator:
         self.config = config
 
     def calculate_current_position(self) -> Position:
-        self.body.compute(self.observer)
-
-        altitude = math.degrees(self.body.alt)
-        azimuth = math.degrees(self.body.az)
-        distance = self.body.earth_distance  # 天体までの距離（天文単位）
+        self.body.compute(self.observer)        # 観測時の状態を計算
+        altitude    = math.degrees(self.body.alt)
+        azimuth     = math.degrees(self.body.az)
+        distance    = self.body.earth_distance  # 天体までの距離（天文単位）
 
         # オプション項目の初期化
-        magnitude = constellation = phase = age = illumination = diameter = None
+        magnitude = constellation = phase = age = age_noon = illumination = diameter = None
 
         match self.body.__class__.__name__:
             case "Moon":
@@ -87,14 +94,32 @@ class CelestialCalculator:
                 conste = ephem.constellation(self.body)[1]
                 constellation = self.constellation_tbl.get(conste, conste)
                 
+        # 出・南中・入の計算（全天体共通）
+        #
+        # 天文台の基準に合わせるための時刻修正
+        save_date = self.observer.date                  # 観測時刻を変更するため一時退避
+        local_midnight = self.get_local_midnight()      #
+        self.observer.date  = ephem.Date(local_midnight)# 観測時刻を地方時0時に変更 
+        self.body.compute(self.observer)
+
+        rising  = self.calculate_rising()
+        transit = self.calculate_transit()
+        setting = self.calculate_setting()
+        age_noon= self.calculate_Moon_noon_age()        # 月の正午月齢
+        self.observer.date = save_date                  # 観測日時を元の指定時刻に戻す
+
         return Position(altitude, azimuth,
                distance = distance,
-               magnitude = magnitude,
-               constellation = constellation,
-               phase = phase,
+               rising   = rising,
+               transit  = transit,
+               setting  = setting,
+               magnitude= magnitude,
+               phase    = phase,
+               age      = age,
+               age_noon = age_noon,
+               diameter = diameter,
                illumination = illumination,
-               age = age,
-              diameter = diameter
+               constellation = constellation
         )
 
 
@@ -239,11 +264,13 @@ class EarthCalculator:
         azimuth_deg = math.degrees(azimuth) % 360
         altitude_deg = math.degrees(elevation)
 
-        return {
-            "azimuth": azimuth_deg,
-            "altitude": altitude_deg,
-            "distance": distance_km
-        }
+        # オプション項目の初期化
+        magnitude = constellation = phase = age = age_noon = illumination = diameter = None
+
+        return Position(altitude_deg,
+                        azimuth_deg,
+                        distance = distance_km
+        )
 
 
 class SSOCalculator:

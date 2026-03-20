@@ -169,7 +169,7 @@ class ArrowOperationHandler:
 
             # 観測情報をprint: TODO - scriptモードを導入するときは考慮
             logger.debug(f"Width: {console.width}, Height: {console.height}")
-            console.print(FormatterFactory.reformat(obs, target, self.config), crop=False)
+            console.print(FormatterFactory.reformat(obs, target, position, self.config), crop=False)
 
             # 観測結果（位置情報）を返す。repl側ではechoを無視する必要がある。
             # TODO - positionだけでなく、rise, transit, set も返したほうがよい
@@ -178,7 +178,11 @@ class ArrowOperationHandler:
         # パターン2: Observer -> Observer : 距離、仰角計算
         if isinstance(obs, ephem.Observer) and isinstance(target, ephem.Observer):
             logger.debug("dispatch_pattern: 2. Observer -> Observer (distance, alt)")
-            return FormatterFactory.reformat(obs, target, self.config)
+
+            earth = EarthCalculator(obs, target)
+            position = earth.calculate_direction_distance()
+
+            return FormatterFactory.reformat(obs, target, position, config=self.config)
         
         # パターン3: Body -> body : 距離計算
         if isinstance(obs, ephem.Body) and isinstance(target, ephem.Body):

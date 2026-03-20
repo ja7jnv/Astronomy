@@ -12,7 +12,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta, time
 from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
-from calculation import CelestialCalculator, EarthCalculator, Position
+from calculation import Position
 from classes  import Constants
 
 import logging
@@ -148,7 +148,7 @@ m       """
         Returns:
             フォーマットされた文字列
         """
-        logger.debug("MoonPsition: format_event")
+        logger.debug("MoonPosition: format_event")
         rise_time, rise_az = rise_data
         transit_time, transit_alt = transit_data
         set_time, set_az = set_data
@@ -240,34 +240,24 @@ class CelestialBodyFormatter(ABC):
 class MoonFormatter(CelestialBodyFormatter):
     """月専用フォーマッター"""
     
-    def format(self, observer: ephem.Observer, body: ephem.Moon) -> str:
+    def format(self, observer: ephem.Observer, body: ephem.Moon, position: Position) -> str:
         """月の情報を整形"""
+
         # 観測日時
         result = self.format_observation_time(observer)
-        
-        # 現在位置の計算とフォーマット
-        moon = CelestialCalculator(observer, body, self.config)
-        position = moon.calculate_current_position()
         
         formatter = BodyPosition(self.config)
         result += formatter.format_position("月", position) + "\n"
         result += "\n"
         
-        # 計算開始時刻を設定
-        local_midnight = moon.get_local_midnight()
-
-        #local_date = local_midnight.date()
-        observer.date = ephem.Date(local_midnight)
-        body.compute(observer)
-        
         # 月の出・南中・月の入の計算
-        rise_data = moon.calculate_rising()
-        transit_data = moon.calculate_transit()
-        set_data = moon.calculate_setting()
-        age = moon.calculate_Moon_noon_age()
+        rise_data = position.rising
+        transit_data = position.transit
+        set_data = position.setting
+        age_noon = position.age_noon
         
         # フォーマット
-        result += formatter.format_events("月", rise_data, transit_data, set_data, age)
+        result += formatter.format_events("月", rise_data, transit_data, set_data, age_noon)
         result += "\n"
 
         return result
@@ -277,15 +267,10 @@ class PlanetFormatter(CelestialBodyFormatter):
     """惑星専用フォーマッター"""
     from ssohelp import planet      # これは self.planet
 
-    def format(self, observer: ephem.Observer, body: ephem.Body) -> str:
+    def format(self, observer: ephem.Observer, body: ephem.Body, position: Position) -> str:
         """惑星の情報を整形"""
         result = self.format_observation_time(observer)
         
-        # 惑星の計算
-        planet = CelestialCalculator(observer, body, self.config)
-        # ↑これはselfでないplanet 間際らしいので間違えないように
-
-        position = planet.calculate_current_position()
         planet_eng = getattr(body, 'name')
         planet_name = self.planet.get(planet_eng, planet_eng)
         
@@ -302,19 +287,10 @@ class PlanetFormatter(CelestialBodyFormatter):
         result += f"等級  : {position.magnitude:.1f}  {mag_guide}\n"
         result += "\n"
         
-        # 惑星の出入り
-
-        # 計算開始時刻を設定
-        local_midnight = planet.get_local_midnight()
-
-        # local_date = local_midnight.date()
-        observer.date = ephem.Date(local_midnight)
-        body.compute(observer)
-        
         # 惑星の出・南中・入の計算
-        rise_data = planet.calculate_rising()
-        transit_data = planet.calculate_transit()
-        set_data = planet.calculate_setting()
+        rise_data = position.rising
+        transit_data = position.transit
+        set_data = position.setting
         age = None
         
         # 出入り情報を追加
@@ -341,28 +317,17 @@ class PlanetFormatter(CelestialBodyFormatter):
 class SunFormatter(CelestialBodyFormatter):
     """太陽専用フォーマッター"""
     
-    def format(self, observer: ephem.Observer, body: ephem.Sun) -> str:
+    def format(self, observer: ephem.Observer, body: ephem.Sun, position: Position) -> str:
         """太陽の情報を整形"""
         result = self.format_observation_time(observer)
         
-        # 太陽の計算
-        sun = CelestialCalculator(observer, body, self.config)
-        position = sun.calculate_current_position()
-
         formatter = BodyPosition(self.config)
         result += formatter.format_position("太陽", position) + "\n\n"
         
-        # 計算開始時刻を設定
-        local_midnight = sun.get_local_midnight()
-
-        #local_date = local_midnight.date()
-        observer.date = ephem.Date(local_midnight)
-        body.compute(observer)
-        
         # 日の出・南中・日の入の計算
-        rise_data = sun.calculate_rising()
-        transit_data = sun.calculate_transit()
-        set_data = sun.calculate_setting()
+        rise_data = position.rising
+        transit_data = position.transit
+        set_data = position.setting
         age = None
         
         # フォーマット
@@ -374,15 +339,12 @@ class SunFormatter(CelestialBodyFormatter):
 class earthFormatter(CelestialBodyFormatter):
     """地上フォーマッター"""
     
-    def format(self, obs1: ephem.Observer, obs2: ephem.Observer) -> str:
+    def format(self, obs1: ephem.Observer, obs2: ephem.Observer, position: Position) -> str:
         logger.debug(f"earthForamatter:")
 
-        ec = EarthCalculator(obs1, obs2)
-        earth = ec.calculate_direction_distance()
-
-        result = f"2地点間の距離: {earth.get("distance"):.2f} km\n"
-        result = result + f"方位角 (Azimuth): {earth.get("azimuth"):.2f}°\n"
-        result = result + f"仰角  (Altitude): {earth.get("altitude"):.2f}°\n"
+        result = f"2地点間の距離: {position.distance:.2f} km\n"
+        result = result + f"方位角 (Azimuth): {position.azimuth:.2f}°\n"
+        result = result + f"仰角  (Altitude): {position.altitude:.2f}°\n"
  
         return result
         
@@ -416,7 +378,7 @@ class FormatterFactory:
 
 
     @staticmethod
-    def reformat(body, target=None, config=None) -> Optional[str]:
+    def reformat(body, target=None, position=None, config=None) -> Optional[str]:
         """
         天体情報を整形
         Args:
@@ -434,11 +396,11 @@ class FormatterFactory:
                     return reformat_observer(body)
                 else: # ファクトリーを使って適切なフォーマッターを取得
                     formatter = FormatterFactory.create_formatter(type(target), config or self)
-                    return formatter.format(body, target)
+                    return formatter.format(body, target, position=position)
 
             case ephem.Body(): # 天体単体の場合
                 formatter = FormatterFactory.create_formatter(type(body), config or self)
-                return formatter.format(self.env["Here"], body)
+                return formatter.format(self.env["Here"], body, position=position)
 
             case _:
                 return None
