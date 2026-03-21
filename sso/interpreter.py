@@ -1,4 +1,4 @@
-
+"""
 sso interpreter : Lark Interpreterを用いたDSL実行エンジン
 - 変数管理: VariableManagerクラスで変数、Body、Observerを管理
 - 矢印演算子処理: ArrowOperationHandlerクラスで矢印演算子のパターンを処理
