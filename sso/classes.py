@@ -106,8 +106,10 @@ def boolean_setter(key_name: str):
     """
     1/0, on/off, true/false, yes/no を Yes/No に変換するデコレータ
     """
+    logger.debug(f"boolean_setter: key_name={key_name}")
     def decorator(func):
         def wrapper(self, value):
+            logger.debug(f"boolean_setter.wrapper: self={self}, value={value}")
             s_val = str(value).lower()
             if s_val in ["0", "off", "false", "no"]:
                 final_val = "No"
@@ -126,6 +128,7 @@ def boolean_setter(key_name: str):
 class SSOSystemConfig:
     
     def __init__(self):
+        logger.debug(f"SSOSystemConfig.__init__: *enter*")
         self.env = {
             "Tz"    : Constants.DEFAULT_TIMEZONE,
             "Echo"  : Constants.DEFAULT_ECHO,
@@ -140,19 +143,23 @@ class SSOSystemConfig:
         # Ephemが標準でサポートしている太陽系の天体リスト（name: ３番目の要素）
         self.body = [name for _0, _1, name in ephem._libastro.builtin_planets()]
         #                     ^^^^^^ １番目と２番めの要素は無視
+        # print(f"SSOSystemconfig.__init__: body={self.body}")
 
     @boolean_setter("Echo")
     def set_Echo(self, value):
         """エコーモードを設定"""
+        logger.debug(f"SSOSystemConfig.set_Echo: value={value}")
         pass
     
     @boolean_setter("Log")
     def set_Log(self, value):
         """ログモードを設定"""
+        logger.debug(f"SSOSystemConfig.set_Log: value={value}")
         pass
     
     def set_Tz(self, value: float) -> str:
         """タイムゾーンを設定"""
+        logger.debug(f"SSOSystemConfig.set_Tz: value={value}")
         if -12.0 <= value <= 14.0:
             self.env["Tz"] = float(value)
             return f"UTCからの時差: {self.env['Tz']:+.2f}"
@@ -160,6 +167,7 @@ class SSOSystemConfig:
     
     def set_Here(self, value: ephem.Observer) -> str:
         """デフォルト観測地を設定"""
+        logger.debug(f"SSOSystemConfig.set_Here: value={value}")
         if not isinstance(value, ephem.Observer):
             raise AttributeError(Constants.ERR_HERE)
         self.env["Here"] = value
@@ -167,30 +175,31 @@ class SSOSystemConfig:
     
     def set_Time(self, value) -> str:
         """観測時刻を設定"""
+        logger.debug(f"SSOSystemConfig.set_Time: value={value}")
         if not isinstance(value, ephem.Date):
             raise AttributeError(Constants.ERR_TIME)
         self.env["Time"] = value
         return f"Observation date_time: {self.env['Time']} [UTC]"
     
-    #def SSOEphem(self, attr: str, value=None): TODO - 機能確認ができたら消す！
     def SSOEphem(self, attr: str, *args):
         """ephemの関数やクラスを呼び出す"""
-        logger.debug(f"SSOEphem: ephem.{attr}({args})")
+        logger.debug(f"SSOSystemConfig.SSOEphem: attr={attr}, args={args}")
         
-        #args = [value] if value is not None else []
         target = getattr(ephem, attr)(*args)
-        logger.debug(f"SSOEphem: ephem.{attr}({args}) -> {target}")
+        logger.debug(f"SSOSystemConfig.SSOEphem: ephem.{attr}({args}) -> {target}")
         
         return target
     
     def toUTC(self, tz_date: str) -> datetime:
         """ローカル時刻をUTCに変換"""
+        logger.debug(f"SSOSystemConfig.toUTC: tz_date={tz_date}")
         d_str = tz_date + "+" + f"{int(self.env['Tz']*100):04}"
         dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
         return dt.astimezone(timezone.utc)
     
     def fromUTC(self, utc_val) -> str:
         """UTCをローカル時刻に変換してフォーマット"""
+        logger.debug(f"SSOSystemConfig.fromUTC: utc_val={utc_val}")
         tz_offset = self.env['Tz']
         
         if isinstance(utc_val, datetime):
@@ -222,6 +231,7 @@ class SSOObserver:
         elev: float = 0, 
         config: Optional[SSOSystemConfig] = None
     ):
+        logger.debug(f"SSOObserver.__init__: attr={attr}, lat={lat}, lon={lon}, elev={elev}, config={config}")
         self.attr = attr
         self.lat, self.lon, self.elev = lat, lon, elev
         self.ephem_obs = ephem.Observer()
@@ -230,17 +240,13 @@ class SSOObserver:
             self.ephem_obs.lat, self.ephem_obs.lon = str(lat), str(lon)
             self.ephem_obs.elevation = elev
             
-            """
-            if config:
-                self.ephem_obs.date = config.env["Time"]
-            """
-    
     def __repr__(self) -> str:
+        logger.debug(f"SSOObserver.__repr__:")
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
 class SSOEarth:
     def __init__(self, earth: ephem.Observer):
-        logger.debug(f"SSOEarth: earth={earth}")
+        logger.debug(f"SSOEarth.__init__: earth={earth}")
         self.sun  = ephem.Sun(earth)
         self.obs  = earth
         self.moon = ephem.Moon(earth)
@@ -250,7 +256,7 @@ class SSOEarth:
         self.obs.temp = Constants.AVERAGE_TEMPERATURE
 
     def lunar_eclipse(self, period: int, place:str) -> Any:
-        logger.debug(f"lunar_eclipse: date: {period}, obs={self.obs}, moon={self.moon}, sun={self.sun}")
+        logger.debug(f"SSOEarth.lunar_eclipse: period={period}, place={place}")
         config      = SSOSystemConfig()
         date        = []
         separation  = []
@@ -262,7 +268,7 @@ class SSOEarth:
         end_time    = []
 
         def set_return_status():
-            # stat = "皆既/部分食" if s < Constants.LUNAR_ECLIPSE_PARTIAL else "半影月食"
+            logger.debug(f"SSOEarth.lunar_eclipse.set_return_status: full_moon={full_moon}, s={s}")
             date.append(full_moon.datetime())
             separation.append(s)
             altitude.append(math.degrees(moon_here.alt))
@@ -275,8 +281,6 @@ class SSOEarth:
             begin_time.append(res[2])
             end_time.append(res[3])
             logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
-        ### set_return_status():
-        ### end of def
 
         obs = ephem.Observer()              # 月食日を求めるためのObserver
         obs.date = self.obs.date            # 観測地Observerのdateを代入
@@ -327,8 +331,8 @@ class SSOEarth:
                 }
 
 
-    # TODO 時間探索を観測地で実施する必要あり
     def get_eclipse_time(self, initial_date: datetime) -> dict:
+        logger.debug(f"SSOEarth.get_eclipse_time: initial_date={initial_date}")
         from operator import itemgetter
 
         obs = ephem.Observer()
@@ -340,11 +344,9 @@ class SSOEarth:
         moon = ephem.Moon()
 
         res = []            # [時刻, 食分] のリスト
-        eclipse = []        # begin:, max:, end:, magnitude: の辞書型
 
         # 1秒ずつ4時間分　計算繰り返し
         for x in range(0, 15000):
-            # 時刻を1秒進める
             obs.date = start_date.datetime() + timedelta(seconds = x)
 
             # 太陽・月の位置・半径計算

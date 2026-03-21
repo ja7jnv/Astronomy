@@ -1,4 +1,4 @@
-"""
+
 sso interpreter : Lark Interpreterを用いたDSL実行エンジン
 - 変数管理: VariableManagerクラスで変数、Body、Observerを管理
 - 矢印演算子処理: ArrowOperationHandlerクラスで矢印演算子のパターンを処理
@@ -32,6 +32,7 @@ class ContinueException(Exception): pass
 
 class ReturnException(Exception):
     def __init__(self, value):
+        logger.debug(f"ReturnException.__init__: value={value}")
         self.value = value  # return に渡された評価結果
 
 
@@ -39,6 +40,7 @@ class ReturnException(Exception):
 class VariableManager:
     
     def __init__(self, config: SSOSystemConfig):
+        logger.debug(f"VariableManager.__init__: config={config}")
         self.variables = {}
         self.bodies = {}
         self.observer = {}
@@ -136,6 +138,7 @@ class VariableManager:
 class ArrowOperationHandler:
     
     def __init__(self, config: SSOSystemConfig, variable_manager: VariableManager):
+        logger.debug(f"ArrowOperationHandler.__init__: variable_manager={variable_manager}, config={config}")
         self.config = config
         self.var_mgr = variable_manager
     
@@ -345,6 +348,7 @@ class ArrowOperationHandler:
 class SSOInterpreter(Interpreter):
     
     def __init__(self, lark_instance):
+        logger.debug(f"SSOInterpreter.__init__: ")
         self.parser = lark_instance  # REPLから受け取ったパーサーを保持
         self.config = SSOSystemConfig()
         self.var_mgr = VariableManager(self.config)
@@ -988,17 +992,21 @@ class SSOInterpreter(Interpreter):
 
 
     def break_stmt(self, tree):
+        logger.debug(f"SSOInterpreter.break_stmt: tree={tree}")
         raise BreakException()
 
     def continue_stmt(self, tree):
+        logger.debug(f"SSOInterpreter.continue_stmt: tree={tree}")
         raise ContinueException()
 
     def return_stmt(self, tree):
+        logger.debug(f"SSOInterpreter.return_stmt: tree={tree}")
         # return の後の expr を評価
         value = self.visit(tree.children[0]) if tree.children else None
         raise ReturnException(value)
 
     def def_stmt(self, tree):
+        logger.debug(f"SSOInterpreter.def_stmt: tree={tree}")
         # tree.children[0]: 関数名
         # tree.children[1]: 引数名のリスト (arg_params)
         # tree.children[2]: 実行内容 (block)
@@ -1018,23 +1026,24 @@ class SSOInterpreter(Interpreter):
         return None
 
     def import_stmt(self, tree):
-        filename = str(tree.children[0]).strip('"')
-        logger.debug(f"import: {filename}")
+        logger.debug(f"SSOInterpreter.import_stmt: tree={tree}")
+        filename = str(tree.children[0]).strip('"').strip("'")
+        logger.debug(f"import path: {filename}")
 
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 code = f.read()
 
             # self.parser は外部から渡しておくかクラス内に保持しておく必要がある
-            new_tree = self.parser.parse(code)
-
-            # 現在のインタープリター自身で実行（visit）
-            # これにより、このファイル内での def や変数が現在の self に取り込まれる
-            return self.visit(new_tree)
+            if self.parser:
+                new_tree = self.parser.parse(code)
+                # 現在のインタープリター自身で実行（visit）
+                # これにより、このファイル内での def や assign が現在の vm/user_functions に反映される
+                return self.visit(new_tree)
+            else:
+                logger.error("Parser not set in Interpreter. Cannot process import.")
+                return None
 
         except FileNotFoundError:
-            logger.error(f"Import Error: File '{filename}' not found.")
-        except Exception as e:
-            logger.error(f"Import Error in '{filename}': {e}")
-        return None
-
+            logger.error(f"Import file not found: {filename}")
+            return None

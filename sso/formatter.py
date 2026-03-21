@@ -57,6 +57,8 @@ class BodyPosition:
         """
         logger.debug(f"BodyPosition.directions: degree={degree}, intermediate={intermediate}")
 
+        if not degree: return None
+
         directions_4 = ["北", "東", "南", "西"]
         directions_8 = ["北", "北東", "東", "南東",
                         "南", "南西", "西", "北西"]
@@ -105,10 +107,12 @@ m       """
         lines = [ # TODO - 表示桁合わせ必要
             f"[bold gold3]観測日時の{body_name}の情報[/bold gold3]",
             f"方位  : {f'{az:.2f}°':<9}  {self.directions(az,self.config.env.get("Direction", 8))}",
-            f"高度  : {f'{al:.2f}°':<9}  {al_guide}",
-            f"距離  : {f'{position_data.distance:.4f} AU':<9}  {au}"
+            f"高度  : {f'{al:.2f}°':<9}  {al_guide}"
         ]
         
+        if position_data.distance:
+            lines.append(f"距離  : {f'{position_data.distance:.4f} AU':<9}  {au}")
+
         arcmin = "分角arcmin: 1°= 60 arcmin"
 
         if body_name == "月":
@@ -181,12 +185,13 @@ m       """
         label_transit = pad_fullwidth("南中", 10)
         label_set = pad_fullwidth(f"{body_name}の入", 10)
 
-        lines = [
-            f"[bold gold3]{body_name}の出入り[/bold gold3]",
-            f"{label_rise}：{rise_str:<26}    方位：{rise_az_str}° [{self.directions(rise_az,self.config.env.get("Direction", 8))}]",
-            f"{label_transit}：{transit_str:<26}    高度：{transit_alt_str}°",
-            f"{label_set}：{set_str:<26}    方位：{set_az_str}° [{self.directions(set_az,self.config.env.get("Direction", 8))}]"
-        ]
+        lines = [f"[bold gold3]{body_name}の出入り[/bold gold3]"]
+        if rise_str[0:2] != "--":
+            lines.append(f"{label_rise}：{rise_str:<26}    方位：{rise_az_str}° [{self.directions(rise_az,self.config.env.get("Direction", 8))}]")
+        if transit_str[0:2] != "--":
+            lines.append(f"{label_transit}：{transit_str:<26}    高度：{transit_alt_str}°")
+        if set_str[0:2] != "--":
+            lines.append(f"{label_set}：{set_str:<26}    方位：{set_az_str}° [{self.directions(set_az,self.config.env.get("Direction", 8))}]")
 
         if body_name == "月":
             phase = self._get_moon_phase(age)
@@ -204,7 +209,7 @@ m       """
         """
         logger.debug(f"BodyPosition._format_event_time: event_time={event_time}")
         if event_time is None:
-            return "--:-- (なし)"
+            return "--:-- (未設定)"
         elif event_time == Constants.EVENT_ALWAYS_UP:
             return "一日中地平線上"
         elif event_time == Constants.EVENT_NEVER_UP:
@@ -324,6 +329,33 @@ class PlanetFormatter(CelestialBodyFormatter):
         7等星〜： 双眼鏡（7×50：9.5等まで）や望遠鏡が必要。
         """
 
+class PlanetMoonFormatter(CelestialBodyFormatter):
+    """惑星衛星専用フォーマッター"""
+
+    def format(self, observer: ephem.Observer, body: ephem.Body, position: Position) -> str:
+        """惑星衛星の情報を整形"""
+        logger.debug(f"PlanetMoonFormatter.format: observer={observer}, body={body}, position={position}")
+        result = self.format_observation_time(observer)
+        
+        planet_moon = getattr(body, 'name')
+
+        # 観測日時の惑星衛星の情報
+        formatter = BodyPosition(self.config)
+        result += formatter.format_position(planet_moon, position) + "\n" 
+        result += "\n"
+        
+        # 惑星衛星の出・南中・入の計算
+        rise_data = position.rising
+        transit_data = position.transit
+        set_data = position.setting
+        age = None
+        
+        # 出入り情報を追加
+        result += formatter.format_events(planet_moon, rise_data, transit_data, set_data, age)
+        result += "\n"
+
+        return result
+
 
 class SunFormatter(CelestialBodyFormatter):
     """太陽専用フォーマッター"""
@@ -386,7 +418,7 @@ class FormatterFactory:
             ephem.Neptune: PlanetFormatter,
         }
         
-        formatter_class = formatters.get(body_type, PlanetFormatter)
+        formatter_class = formatters.get(body_type, PlanetMoonFormatter)
         return formatter_class(config)
 
 

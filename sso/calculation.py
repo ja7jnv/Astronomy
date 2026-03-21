@@ -34,6 +34,7 @@ class Position:
                  diameter=None,
                  illumination=None,
                  constellation=None):
+         logger.debug(f"Position.__init__: altitude={altitude}, azimuth={azimuth}, distance={distance}, magnitude={magnitude}")
 
          self.altitude  = altitude
          self.azimuth   = azimuth   
@@ -67,16 +68,17 @@ class CelestialCalculator:
     }
     
     def __init__(self, observer: ephem.Observer, body: ephem.Body, config):
+        logger.debug(f"CelestialCalculator.__init__: observer={observer}, body={body}, config={config}")
         self.observer = observer
         self.body = body
         self.config = config
 
     def calculate_current_position(self) -> Position:
+        logger.debug(f"CelestialCalculator.calculate_current_position: body={self.body.name}")
         self.body.compute(self.observer)        # 観測時の状態を計算
         altitude    = math.degrees(self.body.alt)
         azimuth     = math.degrees(self.body.az)
         distance    = getattr(self.body, 'earth_distance', None)
-        #distance    = self.body.earth_distance  # 天体までの距離（天文単位）
 
         # オプション項目の初期化
         magnitude = constellation = phase = age = age_noon = illumination = diameter = None
@@ -127,6 +129,7 @@ class CelestialCalculator:
 
     def get_local_midnight(self) -> datetime:
         """指定日の現地真夜中の時刻を取得"""
+        logger.debug(f"CelestialCalculator.get_local_midnight: observer.date={self.observer.date}")
         tz_offset = timezone(timedelta(hours=float(self.config.env['Tz'])))
         utc_now = self.observer.date.datetime().replace(tzinfo=timezone.utc)
         local_now = utc_now.astimezone(tz_offset)
@@ -134,8 +137,8 @@ class CelestialCalculator:
         return local_midnight.astimezone(timezone.utc)
 
     def calculate_rising(self) -> Tuple[Optional[Any], Optional[float]]:
-        logger.debug("CelestialCalculator: calculate_rising")
         """指定日の出の時刻と方位を計算"""
+        logger.debug(f"CelestialCalculator.calculate_rising: body={self.body.name}")
         tz_offset = timezone(timedelta(hours=float(self.config.env['Tz'])))
 
         try:
@@ -148,19 +151,19 @@ class CelestialCalculator:
 
         except ephem.AlwaysUpError:
             logger.info("The body is always up.")
-            return Constats.EVENT_ALWAYS_UP, None
+            return Constants.EVENT_ALWAYS_UP, None
 
         except ephem.NeverUpError:
             logger.info("The body does not rise on this date.")
-            return Constats.EVENT_NEVER_UP, None
+            return Constants.EVENT_NEVER_UP, None
 
         except Exception as e:
             logger.error(f"Error calculating rise time: {e}")
             return None, None
 
     def calculate_transit(self) -> Tuple[Optional[Any], Optional[float]]:
-        logger.debug("CelestialCalculator: calculate_transit")
         """指定日の南中の時刻と高度を計算"""
+        logger.debug(f"CelestialCalculator.calculate_transit: body={self.body.name}")
         tz_offset = timezone(timedelta(hours=float(self.config.env['Tz'])))
 
         try:
@@ -176,8 +179,8 @@ class CelestialCalculator:
             return None, None
 
     def calculate_setting(self) -> Tuple[Optional[Any], Optional[float]]:
-        logger.debug("CelestialCalculator: calculate_setting")
         """指定日の入りの時刻と方位を計算"""
+        logger.debug(f"CelestialCalculator.calculate_setting: body={self.body.name}")
         tz_offset = timezone(timedelta(hours=float(self.config.env['Tz'])))
 
         try:
@@ -193,9 +196,8 @@ class CelestialCalculator:
             return None, None
 
     def calculate_Moon_noon_age(self):
-        logger.debug("CelestialCalculator: calculate_Moon_noon_age")
-
-        # 天文台の表示に合わせた正午月齢の計算
+        """天文台の表示に合わせた正午月齢の計算"""
+        logger.debug(f"CelestialCalculator.calculate_Moon_noon_age: observer.date={self.observer.date}")
         TZ_OFFSET = float(self.config.env["Tz"])
 
         # 12:00(Local) - Tz = 03:00(UTC)   // Tz=9.0の場合
@@ -212,12 +214,13 @@ class CelestialCalculator:
 class EarthCalculator:
 
     def __init__(self, obs1: ephem.Observer, obs2: ephem.Observer):
+        logger.debug(f"EarthCalculator.__init__: obs1={obs1}, obs2={obs2}")
         self.obs1 = obs1
         self.obs2 = obs2
 
-    def calculate_direction_distance(self) -> dict:
+    def calculate_direction_distance(self) -> Position:
         """２点間の方角、仰角、及び距離を計算"""
-        logger.debug(f"calculate_direction_distance:\nobs1:{self.obs1}\nobs2:{self.obs2}")
+        logger.debug(f"EarthCalculator.calculate_direction_distance: obs1_name={getattr(self.obs1, 'name', 'N/A')}, obs2_name={getattr(self.obs2, 'name', 'N/A')}")
 
         # 緯度、経度、標高を取得
         lat1, lon1, elev1 = float(self.obs1.lat), float(self.obs1.lon), self.obs1.elev
@@ -228,6 +231,7 @@ class EarthCalculator:
 
         # ECEF座標系への変換関数
         def to_ecef(lat, lon, h):
+            logger.debug(f"EarthCalculator.calculate_direction_distance.to_ecef: lat={lat}, lon={lon}, h={h}")
             x = (R + h) * math.cos(lat) * math.cos(lon)
             y = (R + h) * math.cos(lat) * math.sin(lon)
             z = (R + h) * math.sin(lat)
@@ -249,12 +253,10 @@ class EarthCalculator:
         ])
 
         # ベクトルdとup_vecのなす角から仰角を計算
-        # sin(elev) = (d . up_vec) / |d|
         sin_elev = np.dot(d, np_vec) / distance
         elevation = math.asin(np.clip(sin_elev, -1.0, 1.0))  # ラジアン
         
         # 方位角の計算
-        # 北方向ベクトルと東方向ベクトル
         east_vec = np.array([-math.sin(lon1), math.cos(lon1), 0])
         north_vec = np.cross(np_vec, east_vec)
 
@@ -265,9 +267,6 @@ class EarthCalculator:
         distance_km = distance / 1000.0  # メートルからキロメートルへ変換
         azimuth_deg = math.degrees(azimuth) % 360
         altitude_deg = math.degrees(elevation)
-
-        # オプション項目の初期化
-        magnitude = constellation = phase = age = age_noon = illumination = diameter = None
 
         return Position(altitude_deg,
                         azimuth_deg,
@@ -287,8 +286,8 @@ class SSOCalculator:
         mode: str = Constants.MODE_NOW, 
         context=None
     ) -> str:
-        """
-        天体を観測
+        """天体を観測
+        logger.debug(f"SSOCalculator.observe: target_name={target_name}, mode={mode}")
         
         Args:
             observer: 観測地
@@ -309,9 +308,11 @@ class SSOCalculator:
         body.compute(observer)
         
         def to_deg(rad: float) -> float:
+            logger.debug(f"SSOCalculator.observe.to_deg: rad={rad}")
             return math.degrees(rad)
         
         def format_time(edate):
+            logger.debug(f"SSOCalculator.observe.format_time: edate={edate}")
             return config.fromUTC(edate.datetime())
         
         if mode == Constants.MODE_NOW:
