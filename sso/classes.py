@@ -82,6 +82,8 @@ class Constants:
     LUNAR_ECLIPSE_PARTIAL = 0.018 # 半影食の限界値 0.015近辺で調整
     LUNAR_ECLIPSE_SF = 1.02      # 計算誤差許容値
     LUNAR_ECLIPSE_SCALE_FACTOR = 51 / 50    # ↑と同じ？
+    ANGLE_SOLAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
+    SOLAR_ECLIPSE_SCALE_FACTOR = 51 / 50
 
     """予約語"""
     KEYWORD = ( "Sun",
@@ -257,7 +259,6 @@ class SSOEarth:
 
     def lunar_eclipse(self, period: int, place:str) -> Any:
         logger.debug(f"SSOEarth.lunar_eclipse: period={period}, place={place}")
-        config      = SSOSystemConfig()
         date        = []
         separation  = []
         altitude    = []
@@ -317,7 +318,7 @@ class SSOEarth:
                 高度、月の出入りを計算して以下の判定を実施
                 """
                 if is_world or is_moon_up:
-                    res = self.get_eclipse_time(obs.date)
+                    res = self.get_lunar_eclipse_time(obs.date)
                     set_return_status()
 
         return {"date": date,
@@ -331,14 +332,161 @@ class SSOEarth:
                 }
 
 
-    def get_eclipse_time(self, initial_date: datetime) -> dict:
-        logger.debug(f"SSOEarth.get_eclipse_time: initial_date={initial_date}")
+    def get_lunar_eclipse_time(self, initial_date: datetime) -> dict:
+        logger.debug(f"SSOEarth.get_lunar_eclipse_time: initial_date={initial_date}")
         from operator import itemgetter
 
         obs = ephem.Observer()
         obs.elevation = -Constants.EARTH_RADIUS 
         obs.pressure = 0
         start_date = ephem.Date(initial_date - (2 * ephem.hour)) # 満月時刻から２時間前
+
+        sun = ephem.Sun()
+        moon = ephem.Moon()
+
+        res = []            # [時刻, 食分] のリスト
+
+        # 1秒ずつ4時間分　計算繰り返し
+        for x in range(0, 15000):
+            obs.date = start_date.datetime() + timedelta(seconds = x)
+
+            # 太陽・月の位置・半径計算
+            sun.compute(obs)
+            moon.compute(obs)
+            r_s = sun.size/2
+            r_m = moon.size/2
+
+            # 視差・本影の視半径計算
+            p_s = np.rad2deg(ephem.earth_radius / (sun.earth_distance * ephem.meters_per_au)) * 3600    # 度-> 秒
+            p_m = np.rad2deg(ephem.earth_radius / (moon.earth_distance * ephem.meters_per_au)) * 3600
+            R_u = (p_s + p_m - r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
+            R_p = (p_s + p_m + r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
+
+            # 月・地球の本影の角距離の計算
+            s = abs(np.rad2deg(ephem.separation(sun, moon)) - 180) * 3600
+
+            # 食分の計算
+            magnitude = (R_u + r_m - s) / (r_m * 2)
+
+            # 計算結果を追加（時刻、食分）
+            res.append([obs.date, magnitude])
+
+        # 食の最大の検索
+        max_eclipse = max(res, key=itemgetter(1))
+        max_date  = max_eclipse[0]
+        magnitude = max(0, max_eclipse[1])
+        begin_date = None
+        end_date = None
+
+        # 欠け始めと食の終わりの検索
+        eclipse = False
+        for x in res:
+            if x[1] > 0 :
+                if eclipse == False:
+                    begin_date = x[0]
+                    eclipse = True
+            else :
+                if eclipse == True:
+                    end_date = x[0]
+                    eclipse = False
+
+        return max_date, magnitude, begin_date, end_date
+
+
+    def solar_eclipse(self, args: list) -> Any:
+        """
+        太陽食の発生を調べる。
+        periodは調査年数、placeは"world"（全地球）か"local"（観測地）を指定。
+        返り値は、食の発生日時、太陽と月の離角、月の高度、食の状態（皆既食、部分食、半影食）、最大食の時刻、食分、欠け始めと食の終わりの時刻を含む辞書。
+        """
+        period = args[0]
+        place  = args[1]
+        logger.debug(f"SSOEarth.solar_eclipse: period={period}, place={place}")
+
+        date        = []
+        separation  = []
+        altitude    = []
+        status      = []
+        max_time    = []
+        magnitude   = []
+        begin_time  = []
+        end_time    = []
+
+        def set_return_status():
+            logger.debug(f"SSOEarth.solar_eclipse.set_return_status: new_moon={new_moon}, s={s}")
+            date.append(new_moon.datetime())
+            separation.append(s)
+            altitude.append(math.degrees(moon_here.alt))
+            max_time.append(res[0])
+            magnitude.append(res[1])
+            if   res[1] >= 1.0: stat = "皆既食 🔴"
+            elif res[1] > 0   : stat = "部分食 🌘"
+            else              : stat = "半影食 🌕"
+            status.append(stat)
+            begin_time.append(res[2])
+            end_time.append(res[3])
+            logger.debug(f"solar_eclipse: date={new_moon}, sep={s}, status-{status}")
+
+        obs = ephem.Observer()              # 日食日を求めるためのObserver
+        obs.date = self.obs.date            # 観測地Observerのdateを代入
+        obs.elevation = -Constants.EARTH_RADIUS  # -6378137.0 地球中心
+        obs.pressure = 0
+        obs.temp =  0
+
+        is_world = (place == "world")       # 全地球での観測か？
+
+        # 新月（日食候補）を調べる
+        for i in range(period*12): # 調査年数periodに年間発生新月回数12を乗じる
+            new_moon = ephem.next_new_moon(obs.date)
+            obs.date = new_moon            # 日食日探索用Observerの日付更新
+            self.obs.date = new_moon       # 観測地Observerの日付更新
+
+            sun = ephem.Sun(obs)
+            moon = ephem.Moon(obs)
+            moon_here = ephem.Moon(self.obs)
+
+            # 太陽と月の離角を計算
+            # 日食は離角が0に近い時に起こる
+            sep = ephem.separation(moon, sun)
+            s = abs(sep)
+
+            is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
+
+            # 月と太陽の視直径のサイズからして、
+            # 黄緯差 1.5度以内なら何らかの食が起きる
+            # 地球の半径分視差を＋してscale_factorを乗じる
+            if s < (Constants.ANGLE_SOLAR_ECLIPSE * Constants.SOLAR_ECLIPSE_SCALE_FACTOR):
+                # 調査用コード
+                # まずは、全世界的に食が起きる日を抽出して、その後、観測地で月が見えるかを判定する
+                print(f"solar_eclipse: new_moon={new_moon}, sep={s}, moon_alt={math.degrees(moon_here.alt)}, is_world={is_world}, is_moon_up={is_moon_up}")
+
+                if is_world or is_moon_up:
+                    res = self.get_solar_eclipse_time(obs.date)
+                    set_return_status()
+
+        return
+    """
+        return {"date": date,
+                "separation": separation,
+                "altitude": altitude,
+                "status": status,
+                "max_time": max_time,
+                "magnitude": magnitude,
+                "begin_time": begin_time,
+                "end_time": end_time
+                }
+    """
+
+
+    def get_solar_eclipse_time(self, initial_date: datetime) -> dict:
+        """ 太陽食の最大食の時刻、食分、欠け始めと食の終わりの時刻を計算する """
+        logger.debug(f"SSOEarth.get_solar_eclipse_time: initial_date={initial_date}")
+        from operator import itemgetter
+
+        obs = ephem.Observer()
+        obs.elevation = -Constants.EARTH_RADIUS 
+        obs.pressure = 0
+        start_date = ephem.Date(initial_date - (2 * ephem.hour)) # 新月時刻から２時間前
 
         sun = ephem.Sun()
         moon = ephem.Moon()

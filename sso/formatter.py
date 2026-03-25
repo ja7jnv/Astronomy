@@ -85,7 +85,7 @@ class BodyPosition:
             case h if h <= 0:                 res = "地球の裏側にいます"
             case h if (h > 0) and (h < 10):   res = "地平線ギリギリにいます"
             case h if (h >= 10) and (h < 20): res = "地平線近くにいます"
-            case h if h >= 20:                res = "[方位]の方向にいます"
+            case h if h >= 20:                res = "中空にいます"
             case _: res = ""
         return res
 

@@ -11,6 +11,8 @@ sso_completer = WordCompleter([
     'for', 'in', 'do', 'end_for',
     'while', 'end_while',
     'def', 'end_def',
+    'import', 'version',
+    'Solar_eclipse',
     ### 天体 ###
     'Sun', 'Mercury', 'Venus',
     'Earth', 'Moon',

@@ -2,6 +2,7 @@
 *~
 \#*
 _*
+*.pdf
 *.zip
 code.py
 de421.bsp

@@ -699,6 +699,23 @@ class SSOInterpreter(Interpreter):
             case "Print": return console.print(args)
             case "print": return console.print(' '.join(map(str,args)))
             case "zone" : return timezone(timedelta(hours=float(*args)))
+            case "Solar_eclipse":
+                earth = SSOEarth(self.config.env.get("Here"))
+                earth.sun = ephem.Sun()
+                earth.obs = ephem.Observer()
+                s_date = self.var_mgr.observer.get("Sun", None)     # 検索開始日
+                if s_date is not None:      # 指定がないときはTime、基本は現時刻
+                    earth.obs.date = s_date
+                else:
+                    earth.obs.date = self.config.env.get("Time",self.config.SSOEphem("now"))
+                    logger.debug(f"return: {earth.obs.date}")
+
+                    # argsが空の場合、(5, "world") をデフォルトにする
+                    p_list = list(args) + [5, "world"]
+                    period = int(p_list[0])
+                    place = p_list[1]
+                    earth.solar_eclipse([period, place])
+
             case _      :
                 # その他のephem関数
                 logger.debug(f"Fundamental ephem call: {func_name}, args={args}")
