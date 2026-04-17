@@ -714,7 +714,28 @@ class SSOInterpreter(Interpreter):
                     p_list = list(args) + [5, "world"]
                     period = int(p_list[0])
                     place = p_list[1]
-                    earth.solar_eclipse([period, place])
+                    res = earth.solar_eclipse([period, place])
+
+                    # zip()関数を使って同時に取り出す
+                    for d, s, a, stat, x, m, b, e in zip(
+                            res.get('date'),        # -> d
+                            res.get('separation'),  # -> s
+                            res.get('altitude'),    # -> a
+                            res.get('status'),      # -> stat
+                            res.get("max_time"),    # -> x
+                            res.get('magnitude'),   # -> m
+                            res.get('begin_time'),  # -> b
+                            res.get('end_time')     # -> e
+                            ):
+                        if d is not None: d = self.config.fromUTC(d)
+                        sx = self._split_date(x)
+                        sb = self._split_date(b)
+                        se = self._split_date(e)
+
+                        console.print(f"観測日: {d}  観測地: 緯度={str(earth.obs.lat)[:5]} 経度={str(earth.obs.lon)[:6]} 標高={earth.obs.elevation:.1f} m")
+                        console.print(f"部分食開始:{sb}  最大食:{sx}  部分食終了:{se}")
+                        console.print(f"状態:{stat}  最大食分:{m:.3f}  高度:{a:.2f}°   離角:{s:.4f}° ")
+                        console.print("")
 
             case _      :
                 # その他のephem関数

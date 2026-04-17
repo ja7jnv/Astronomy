@@ -450,7 +450,8 @@ class SSOEarth:
             sep = ephem.separation(moon, sun)
             s = abs(sep)
 
-            is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
+            #is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
+            is_moon_up = True
 
             # 月と太陽の視直径のサイズからして、
             # 黄緯差 1.5度以内なら何らかの食が起きる
@@ -458,14 +459,12 @@ class SSOEarth:
             if s < (Constants.ANGLE_SOLAR_ECLIPSE * Constants.SOLAR_ECLIPSE_SCALE_FACTOR):
                 # 調査用コード
                 # まずは、全世界的に食が起きる日を抽出して、その後、観測地で月が見えるかを判定する
-                print(f"solar_eclipse: new_moon={new_moon}, sep={s}, moon_alt={math.degrees(moon_here.alt)}, is_world={is_world}, is_moon_up={is_moon_up}")
+                print(f"solar_eclipse: new_moon={new_moon}, sep={s:.7f}, moon_alt={math.degrees(moon_here.alt):.3f}")
 
                 if is_world or is_moon_up:
                     res = self.get_solar_eclipse_time(obs.date)
                     set_return_status()
 
-        return
-    """
         return {"date": date,
                 "separation": separation,
                 "altitude": altitude,
@@ -475,7 +474,6 @@ class SSOEarth:
                 "begin_time": begin_time,
                 "end_time": end_time
                 }
-    """
 
 
     def get_solar_eclipse_time(self, initial_date: datetime) -> dict:
@@ -486,15 +484,15 @@ class SSOEarth:
         obs = ephem.Observer()
         obs.elevation = -Constants.EARTH_RADIUS 
         obs.pressure = 0
-        start_date = ephem.Date(initial_date - (2 * ephem.hour)) # 新月時刻から２時間前
+        start_date = ephem.Date(initial_date - (4 * ephem.hour)) # 新月時刻から4時間前
 
         sun = ephem.Sun()
         moon = ephem.Moon()
 
         res = []            # [時刻, 食分] のリスト
 
-        # 1秒ずつ4時間分　計算繰り返し
-        for x in range(0, 15000):
+        # 1秒ずつ6時間分　計算繰り返し
+        for x in range(0, 28800):
             obs.date = start_date.datetime() + timedelta(seconds = x)
 
             # 太陽・月の位置・半径計算
@@ -503,20 +501,25 @@ class SSOEarth:
             r_s = sun.size/2
             r_m = moon.size/2
 
-            # 視差・本影の視半径計算
-            p_s = np.rad2deg(ephem.earth_radius / (sun.earth_distance * ephem.meters_per_au)) * 3600    # 度-> 秒
-            p_m = np.rad2deg(ephem.earth_radius / (moon.earth_distance * ephem.meters_per_au)) * 3600
-            R_u = (p_s + p_m - r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
-            R_p = (p_s + p_m + r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
+            # 太陽と月の「中心間距離」を計算
+            distance = ephem.separation((sun.az,sun.alt), (moon.az,moon.alt))
 
-            # 月・地球の本影の角距離の計算
-            s = abs(np.rad2deg(ephem.separation(sun, moon)) - 180) * 3600
+            # 地球の水平視差（地球の半径が月・太陽の距離でどれだけの角度に見えるか）
+            # 月の視差は約1度弱、太陽はごくわずか
+            pi_m = moon.earth_distance * ephem.arcsecond # 月の地心水平視差
+            pi_s = sun.earth_distance * ephem.arcsecond  # 太陽の地心水平視差（ほぼ無視可能）
 
-            # 食分の計算
-            magnitude = (R_u + r_m - s) / (r_m * 2)
+            # 判定式：中心間距離 < (月の半径 + 太陽の半径 + 地球の視差)
+            if distance < (r_m + r_s + pi_m):
+                # 日食が発生している（部分食以上）
+                magnitude = (r_m + r_s - distance ) / (r_s * 2)     # 食分計算
+            else:
+                magnitude = 0  # 食が発生していない
 
             # 計算結果を追加（時刻、食分）
             res.append([obs.date, magnitude])
+            #if magnitude:
+            #    print(f"date: {obs.date}  magnitude: {magnitude}")
 
         # 食の最大の検索
         max_eclipse = max(res, key=itemgetter(1))
@@ -537,4 +540,5 @@ class SSOEarth:
                     end_date = x[0]
                     eclipse = False
 
+        print(f"最大食時刻: {max_date}, 最大食分: {magnitude:.3f}, 部分食開始: {begin_date}, 部分食終了: {end_date}\n")
         return max_date, magnitude, begin_date, end_date
