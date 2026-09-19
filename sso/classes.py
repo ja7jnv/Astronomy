@@ -1,11 +1,12 @@
 """
 このモジュール内のクラスは、すべてUTCで処理する。
-JTSや他の地方時は、その変換メソッド以外では一切考慮しない。
+JSTや他の地方時は、その変換メソッド以外では一切考慮しない。
 - SSOSystemConfig: システム全体の設定を管理するクラス
 - SSOObserver: 観測地を表すクラス
 - SSOEarth: 地球を表すクラス。月食の計算など、地球に関連する機能を実装する。
 
 """
+
 import ephem
 import math
 import numpy as np
@@ -14,41 +15,41 @@ from typing import Optional, Tuple, Dict, Any
 from abc import ABC, abstractmethod
 
 import logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # rich.console の集約
 from rich.console import Console
-#console = Console(height=100)
+
+# console = Console(height=100)
 console = Console()
 
 from pygments.lexer import RegexLexer
 from pygments.token import Keyword, Name, String, Number, Operator, Punctuation, Comment, Text
 
+
 class SSOLexer(RegexLexer):
-    name = 'sso'
+    name = "sso"
 
     tokens = {
-        'root': [
+        "root": [
             # コメント (Lark: COMMENT)
-            (r'//.*', Comment.Single),
+            (r"//.*", Comment.Single),
             # 数値 (Lark: SIGNED_NUMBER)
-            (r'-?\d+\.?\d*([eE][+-]?\d+)?', Number),
+            (r"-?\d+\.?\d*([eE][+-]?\d+)?", Number),
             # 文字列 (Lark: STRING)
             (r'"[^"]*"|\'[^\']*\'', String),
             # 演算子 (Lark: ->, +, -, *, /, ^, =)
-            (r'->|\+|-|\*|/|\^|=', Operator),
+            (r"->|\+|-|\*|/|\^|=", Operator),
             # 区切り文字
-            (r'[();,.]', Punctuation),
+            (r"[();,.]", Punctuation),
             # BODY_NAME (大文字開始: クラスや天体イメージ)
-            (r'[A-Z][a-zA-Z0-9_]*', Name.Class),
+            (r"[A-Z][a-zA-Z0-9_]*", Name.Class),
             # VAR_NAME (小文字開始: 変数イメージ)
-            (r'[a-z][a-zA-Z0-9_]*', Name.Variable),
+            (r"[a-z][a-zA-Z0-9_]*", Name.Variable),
             # 空白
-            (r'\s+', Text),
+            (r"\s+", Text),
         ]
     }
 
@@ -56,46 +57,53 @@ class SSOLexer(RegexLexer):
 # ===== 定数定義 =====
 class Constants:
     """定数クラス"""
+
     DEFAULT_TIMEZONE = 9.0
     DEFAULT_ECHO = "No"
     DEFAULT_LOG = "No"
-    
+
     MODE_NOW = "Now"
     MODE_RISE = "Rise"
     MODE_SET = "Set"
     MODE_ZENITH = "Zenith"
-    
+
     EVENT_ALWAYS_UP = "AlwaysUp"
     EVENT_NEVER_UP = "NeverUp"
 
     """天文定数(SI単位系)"""
     ATMOSPHERIC_PRESSURE = 1013.25  # 標準大気圧 1013.25 (hPa)
-    AVERAGE_TEMPERATURE = 15.0   # 計算に使う平均気温 (15℃)
-    EARTH_RADIUS = 6378137.0     # 地球半径(m)
-    AXIAL_TILT_DEG = 23.439      # 地軸傾斜角(度)
-    JULIAN_DAY_J2000 = 2451545.0 # J2000.0のユリウス日
-    KM_PER_DEGREE_LAT = 111320   # 緯度1度あたりのm
-    INTERCARDINAL =  8           # 方位分割 4, 8, 16
-    MOONSET_ALTITUDE = -1.2      # 月没判断高度 -1.2度
-    LUNAR_CYCLE = 29.53          # 月の周期
-    ANGLE_LUNAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
-    LUNAR_ECLIPSE_PARTIAL = 0.018 # 半影食の限界値 0.015近辺で調整
-    LUNAR_ECLIPSE_SF = 1.02      # 計算誤差許容値
-    LUNAR_ECLIPSE_SCALE_FACTOR = 51 / 50    # ↑と同じ？
-    ANGLE_SOLAR_ECLIPSE = 0.0262 # 約1.5度 (ラジアン)
+    AVERAGE_TEMPERATURE = 15.0  # 計算に使う平均気温 (15℃)
+    EARTH_RADIUS = 6378137.0  # 地球半径(m)
+    AXIAL_TILT_DEG = 23.439  # 地軸傾斜角(度)
+    JULIAN_DAY_J2000 = 2451545.0  # J2000.0のユリウス日
+    KM_PER_DEGREE_LAT = 111320  # 緯度1度あたりのm
+    INTERCARDINAL = 8  # 方位分割 4, 8, 16
+    MOONSET_ALTITUDE = -1.2  # 月没判断高度 -1.2度
+    LUNAR_CYCLE = 29.53  # 月の周期
+    ANGLE_LUNAR_ECLIPSE = 0.0262  # 約1.5度 (ラジアン)
+    LUNAR_ECLIPSE_PARTIAL = 0.018  # 半影食の限界値 0.015近辺で調整
+    LUNAR_ECLIPSE_SF = 1.02  # 計算誤差許容値
+    LUNAR_ECLIPSE_SCALE_FACTOR = 51 / 50  # ↑と同じ？
+    ANGLE_SOLAR_ECLIPSE = 0.0262  # 約1.5度 (ラジアン)
     SOLAR_ECLIPSE_SCALE_FACTOR = 51 / 50
 
     """予約語"""
-    KEYWORD = ( "Sun",
-                "Mercury",
-                "Venus",
-                "Earth", "Moon",
-                "Mars",
-                "Jupiter", "Io", "Europa", "Ganymede", "Callisto",
-                "Saturn",
-                "Uranus",
-                "Neptune",
-                "Pluto"
+    KEYWORD = (
+        "Sun",
+        "Mercury",
+        "Venus",
+        "Earth",
+        "Moon",
+        "Mars",
+        "Jupiter",
+        "Io",
+        "Europa",
+        "Ganymede",
+        "Callisto",
+        "Saturn",
+        "Uranus",
+        "Neptune",
+        "Pluto",
     )
 
     """エラーメッセージ"""
@@ -109,6 +117,7 @@ def boolean_setter(key_name: str):
     1/0, on/off, true/false, yes/no を Yes/No に変換するデコレータ
     """
     logger.debug(f"boolean_setter: key_name={key_name}")
+
     def decorator(func):
         def wrapper(self, value):
             logger.debug(f"boolean_setter.wrapper: self={self}, value={value}")
@@ -119,27 +128,29 @@ def boolean_setter(key_name: str):
                 final_val = "Yes"
             else:
                 final_val = value
-            
+
             self.env[key_name] = final_val
             return f"{key_name} mode: {self.env.get(key_name)}"
+
         return wrapper
+
     return decorator
 
 
 # ===== システム設定管理クラス =====
 class SSOSystemConfig:
-    
+
     def __init__(self):
         logger.debug(f"SSOSystemConfig.__init__: *enter*")
         self.env = {
-            "Tz"    : Constants.DEFAULT_TIMEZONE,
-            "Echo"  : Constants.DEFAULT_ECHO,
-            "Log"   : Constants.DEFAULT_LOG,
-            "Time"  : ephem.now(),
-            "Direction" : int(8),
-            "Earth" : ephem.Observer(),
-            "Here"  : ephem.Observer(),
-            "Chokai": ephem.Observer()
+            "Tz": Constants.DEFAULT_TIMEZONE,
+            "Echo": Constants.DEFAULT_ECHO,
+            "Log": Constants.DEFAULT_LOG,
+            "Time": ephem.now(),
+            "Direction": int(8),
+            "Earth": ephem.Observer(),
+            "Here": ephem.Observer(),
+            "Chokai": ephem.Observer(),
         }
 
         # Ephemが標準でサポートしている太陽系の天体リスト（name: ３番目の要素）
@@ -152,13 +163,13 @@ class SSOSystemConfig:
         """エコーモードを設定"""
         logger.debug(f"SSOSystemConfig.set_Echo: value={value}")
         pass
-    
+
     @boolean_setter("Log")
     def set_Log(self, value):
         """ログモードを設定"""
         logger.debug(f"SSOSystemConfig.set_Log: value={value}")
         pass
-    
+
     def set_Tz(self, value: float) -> str:
         """タイムゾーンを設定"""
         logger.debug(f"SSOSystemConfig.set_Tz: value={value}")
@@ -166,7 +177,7 @@ class SSOSystemConfig:
             self.env["Tz"] = float(value)
             return f"UTCからの時差: {self.env['Tz']:+.2f}"
         raise AttributeError(Constants.ERR_TZ)
-    
+
     def set_Here(self, value: ephem.Observer) -> str:
         """デフォルト観測地を設定"""
         logger.debug(f"SSOSystemConfig.set_Here: value={value}")
@@ -174,7 +185,7 @@ class SSOSystemConfig:
             raise AttributeError(Constants.ERR_HERE)
         self.env["Here"] = value
         return f"Default observer: {self.env['Here']}"
-    
+
     def set_Time(self, value) -> str:
         """観測時刻を設定"""
         logger.debug(f"SSOSystemConfig.set_Time: value={value}")
@@ -182,91 +193,92 @@ class SSOSystemConfig:
             raise AttributeError(Constants.ERR_TIME)
         self.env["Time"] = value
         return f"Observation date_time: {self.env['Time']} [UTC]"
-    
+
     def SSOEphem(self, attr: str, *args):
         """ephemの関数やクラスを呼び出す"""
         logger.debug(f"SSOSystemConfig.SSOEphem: attr={attr}, args={args}")
-        
+
         target = getattr(ephem, attr)(*args)
         logger.debug(f"SSOSystemConfig.SSOEphem: ephem.{attr}({args}) -> {target}")
-        
+
         return target
-    
+
     def toUTC(self, tz_date: str) -> datetime:
         """ローカル時刻をUTCに変換"""
         logger.debug(f"SSOSystemConfig.toUTC: tz_date={tz_date}")
         d_str = tz_date + "+" + f"{int(self.env['Tz']*100):04}"
         dt = datetime.strptime(d_str, "%Y/%m/%d %H:%M:%S%z")
         return dt.astimezone(timezone.utc)
-    
+
     def fromUTC(self, utc_val) -> str:
         """UTCをローカル時刻に変換してフォーマット"""
         logger.debug(f"SSOSystemConfig.fromUTC: utc_val={utc_val}")
-        tz_offset = self.env['Tz']
-        
+        tz_offset = self.env["Tz"]
+
         if isinstance(utc_val, datetime):
             dt_utc = utc_val
         else:
             dt_utc = datetime.strptime(str(utc_val), "%Y/%m/%d %H:%M:%S")
-        
+
         dt_utc = dt_utc.replace(tzinfo=timezone.utc)
         tz = timezone(timedelta(hours=tz_offset))
         dt_local = dt_utc.astimezone(tz)
-        
+
         date_part = dt_local.strftime("%Y/%m/%d")
         time_part = dt_local.strftime("%H:%M:%S")
-        
+
         sign = "+" if tz_offset >= 0 else ""
         offset_str = f"[{sign}{tz_offset}]"
-        
+
         return f"{date_part:<10} {time_part:<8} {offset_str}"
 
 
 class SSOObserver:
     """観測地オブジェクト"""
-    
+
     def __init__(
-        self, 
-        attr: str, 
-        lat: Optional[float] = None, 
-        lon: Optional[float] = None, 
-        elev: float = 0, 
-        config: Optional[SSOSystemConfig] = None
+        self,
+        attr: str,
+        lat: Optional[float] = None,
+        lon: Optional[float] = None,
+        elev: float = 0,
+        config: Optional[SSOSystemConfig] = None,
     ):
         logger.debug(f"SSOObserver.__init__: attr={attr}, lat={lat}, lon={lon}, elev={elev}, config={config}")
         self.attr = attr
         self.lat, self.lon, self.elev = lat, lon, elev
         self.ephem_obs = ephem.Observer()
-        
+
         if lat is not None:
             self.ephem_obs.lat, self.ephem_obs.lon = str(lat), str(lon)
             self.ephem_obs.elevation = elev
-            
+
     def __repr__(self) -> str:
         logger.debug(f"SSOObserver.__repr__:")
         return f"({self.attr})\n Lat: {self.lat}\n Lon: {self.lon}\n Elev: {self.elev}"
 
+
 class SSOEarth:
     def __init__(self, earth: ephem.Observer):
         logger.debug(f"SSOEarth.__init__: earth={earth}")
-        self.sun  = ephem.Sun(earth)
-        self.obs  = earth
+        self.sun = ephem.Sun(earth)
+        self.obs = earth
         self.moon = ephem.Moon(earth)
         self.mode = None
 
         self.obs.pressure = Constants.ATMOSPHERIC_PRESSURE
         self.obs.temp = Constants.AVERAGE_TEMPERATURE
 
-    def lunar_eclipse(self, period: int, place:str) -> Any:
+    def lunar_eclipse(self, period: int, place: str) -> Any:
         logger.debug(f"SSOEarth.lunar_eclipse: period={period}, place={place}")
-        date        = []
-        separation  = []
-        altitude    = []
-        status      = []
-        max_time    = []
-        magnitude   = []
-        begin_time  = []
-        end_time    = []
+        date = []
+        separation = []
+        altitude = []
+        status = []
+        max_time = []
+        magnitude = []
+        begin_time = []
+        end_time = []
 
         def set_return_status():
             logger.debug(f"SSOEarth.lunar_eclipse.set_return_status: full_moon={full_moon}, s={s}")
@@ -275,27 +287,30 @@ class SSOEarth:
             altitude.append(math.degrees(moon_here.alt))
             max_time.append(res[0])
             magnitude.append(res[1])
-            if   res[1] >= 1.0: stat = "皆既食 🔴"
-            elif res[1] > 0   : stat = "部分食 🌘"
-            else              : stat = "半影食 🌕"
+            if res[1] >= 1.0:
+                stat = "皆既食 🔴"
+            elif res[1] > 0:
+                stat = "部分食 🌘"
+            else:
+                stat = "半影食 🌕"
             status.append(stat)
             begin_time.append(res[2])
             end_time.append(res[3])
             logger.debug(f"lunar_eclipse: date={full_moon}, sep={s}, status-{status}")
 
-        obs = ephem.Observer()              # 月食日を求めるためのObserver
-        obs.date = self.obs.date            # 観測地Observerのdateを代入
+        obs = ephem.Observer()  # 月食日を求めるためのObserver
+        obs.date = self.obs.date  # 観測地Observerのdateを代入
         obs.elevation = -Constants.EARTH_RADIUS  # -6378137.0 地球中心
         obs.pressure = 0
-        obs.temp =  0
+        obs.temp = 0
 
-        is_world = (place == "world")       # 全地球での観測か？
+        is_world = place == "world"  # 全地球での観測か？
 
         # 満月（月食候補）を調べる
-        for i in range(period*12): # 調査年数periodに年間発生満月回数12を乗じる
+        for i in range(period * 12):  # 調査年数periodに年間発生満月回数12を乗じる
             full_moon = ephem.next_full_moon(obs.date)
-            obs.date = full_moon            # 月食日探索用Observerの日付更新
-            self.obs.date = full_moon       # 観測地Observerの日付更新
+            obs.date = full_moon  # 月食日探索用Observerの日付更新
+            self.obs.date = full_moon  # 観測地Observerの日付更新
 
             sun = ephem.Sun(obs)
             moon = ephem.Moon(obs)
@@ -307,13 +322,13 @@ class SSOEarth:
             s = abs(sep - math.pi)
 
             # TODO - この条件、要検討　2027/02/21 半影月食のケース
-            is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
+            is_moon_up = moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE)
             # 地球の影（本影＋半影）のサイズからして、
             # 約0.025ラジアン以内なら何らかの食が起きる
-            scale_factor = Constants.LUNAR_ECLIPSE_SCALE_FACTOR   # 誤差許容値1.02
+            scale_factor = Constants.LUNAR_ECLIPSE_SCALE_FACTOR  # 誤差許容値1.02
             if s < Constants.ANGLE_LUNAR_ECLIPSE * scale_factor:
                 # その地点で月が観測地点の地平線より上にあるか
-                """ TODO
+                """TODO
                 ここに各時刻を観測地moon_hereに代入して
                 高度、月の出入りを計算して以下の判定を実施
                 """
@@ -321,43 +336,43 @@ class SSOEarth:
                     res = self.get_lunar_eclipse_time(obs.date)
                     set_return_status()
 
-        return {"date": date,
-                "separation": separation,
-                "altitude": altitude,
-                "status": status,
-                "max_time": max_time,
-                "magnitude": magnitude,
-                "begin_time": begin_time,
-                "end_time": end_time
-                }
-
+        return {
+            "date": date,
+            "separation": separation,
+            "altitude": altitude,
+            "status": status,
+            "max_time": max_time,
+            "magnitude": magnitude,
+            "begin_time": begin_time,
+            "end_time": end_time,
+        }
 
     def get_lunar_eclipse_time(self, initial_date: datetime) -> dict:
         logger.debug(f"SSOEarth.get_lunar_eclipse_time: initial_date={initial_date}")
         from operator import itemgetter
 
         obs = ephem.Observer()
-        obs.elevation = -Constants.EARTH_RADIUS 
+        obs.elevation = -Constants.EARTH_RADIUS
         obs.pressure = 0
-        start_date = ephem.Date(initial_date - (2 * ephem.hour)) # 満月時刻から２時間前
+        start_date = ephem.Date(initial_date - (2 * ephem.hour))  # 満月時刻から２時間前
 
         sun = ephem.Sun()
         moon = ephem.Moon()
 
-        res = []            # [時刻, 食分] のリスト
+        res = []  # [時刻, 食分] のリスト
 
         # 1秒ずつ4時間分　計算繰り返し
         for x in range(0, 15000):
-            obs.date = start_date.datetime() + timedelta(seconds = x)
+            obs.date = start_date.datetime() + timedelta(seconds=x)
 
             # 太陽・月の位置・半径計算
             sun.compute(obs)
             moon.compute(obs)
-            r_s = sun.size/2
-            r_m = moon.size/2
+            r_s = sun.size / 2
+            r_m = moon.size / 2
 
             # 視差・本影の視半径計算
-            p_s = np.rad2deg(ephem.earth_radius / (sun.earth_distance * ephem.meters_per_au)) * 3600    # 度-> 秒
+            p_s = np.rad2deg(ephem.earth_radius / (sun.earth_distance * ephem.meters_per_au)) * 3600  # 度-> 秒
             p_m = np.rad2deg(ephem.earth_radius / (moon.earth_distance * ephem.meters_per_au)) * 3600
             R_u = (p_s + p_m - r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
             R_p = (p_s + p_m + r_s) * Constants.LUNAR_ECLIPSE_SCALE_FACTOR
@@ -373,7 +388,7 @@ class SSOEarth:
 
         # 食の最大の検索
         max_eclipse = max(res, key=itemgetter(1))
-        max_date  = max_eclipse[0]
+        max_date = max_eclipse[0]
         magnitude = max(0, max_eclipse[1])
         begin_date = None
         end_date = None
@@ -381,17 +396,16 @@ class SSOEarth:
         # 欠け始めと食の終わりの検索
         eclipse = False
         for x in res:
-            if x[1] > 0 :
+            if x[1] > 0:
                 if eclipse == False:
                     begin_date = x[0]
                     eclipse = True
-            else :
+            else:
                 if eclipse == True:
                     end_date = x[0]
                     eclipse = False
 
         return max_date, magnitude, begin_date, end_date
-
 
     def solar_eclipse(self, args: list) -> Any:
         """
@@ -400,17 +414,17 @@ class SSOEarth:
         返り値は、食の発生日時、太陽と月の離角、月の高度、食の状態（皆既食、部分食、半影食）、最大食の時刻、食分、欠け始めと食の終わりの時刻を含む辞書。
         """
         period = args[0]
-        place  = args[1]
+        place = args[1]
         logger.debug(f"SSOEarth.solar_eclipse: period={period}, place={place}")
 
-        date        = []
-        separation  = []
-        altitude    = []
-        status      = []
-        max_time    = []
-        magnitude   = []
-        begin_time  = []
-        end_time    = []
+        date = []
+        separation = []
+        altitude = []
+        status = []
+        max_time = []
+        magnitude = []
+        begin_time = []
+        end_time = []
 
         def set_return_status():
             logger.debug(f"SSOEarth.solar_eclipse.set_return_status: new_moon={new_moon}, s={s}")
@@ -419,27 +433,30 @@ class SSOEarth:
             altitude.append(math.degrees(moon_here.alt))
             max_time.append(res[0])
             magnitude.append(res[1])
-            if   res[1] >= 1.0: stat = "皆既食 🔴"
-            elif res[1] > 0   : stat = "部分食 🌘"
-            else              : stat = "半影食 🌕"
+            if res[1] >= 1.0:
+                stat = "皆既食 🔴"
+            elif res[1] > 0:
+                stat = "部分食 🌘"
+            else:
+                stat = "半影食 🌕"
             status.append(stat)
             begin_time.append(res[2])
             end_time.append(res[3])
             logger.debug(f"solar_eclipse: date={new_moon}, sep={s}, status-{status}")
 
-        obs = ephem.Observer()              # 日食日を求めるためのObserver
-        obs.date = self.obs.date            # 観測地Observerのdateを代入
+        obs = ephem.Observer()  # 日食日を求めるためのObserver
+        obs.date = self.obs.date  # 観測地Observerのdateを代入
         obs.elevation = -Constants.EARTH_RADIUS  # -6378137.0 地球中心
         obs.pressure = 0
-        obs.temp =  0
+        obs.temp = 0
 
-        is_world = (place == "world")       # 全地球での観測か？
+        is_world = place == "world"  # 全地球での観測か？
 
         # 新月（日食候補）を調べる
-        for i in range(period*12): # 調査年数periodに年間発生新月回数12を乗じる
+        for i in range(period * 12):  # 調査年数periodに年間発生新月回数12を乗じる
             new_moon = ephem.next_new_moon(obs.date)
-            obs.date = new_moon            # 日食日探索用Observerの日付更新
-            self.obs.date = new_moon       # 観測地Observerの日付更新
+            obs.date = new_moon  # 日食日探索用Observerの日付更新
+            self.obs.date = new_moon  # 観測地Observerの日付更新
 
             sun = ephem.Sun(obs)
             moon = ephem.Moon(obs)
@@ -450,7 +467,7 @@ class SSOEarth:
             sep = ephem.separation(moon, sun)
             s = abs(sep)
 
-            #is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
+            # is_moon_up = (moon_here.alt > math.radians(Constants.MOONSET_ALTITUDE))
             is_moon_up = True
 
             # 月と太陽の視直径のサイズからして、
@@ -465,65 +482,65 @@ class SSOEarth:
                     res = self.get_solar_eclipse_time(obs.date)
                     set_return_status()
 
-        return {"date": date,
-                "separation": separation,
-                "altitude": altitude,
-                "status": status,
-                "max_time": max_time,
-                "magnitude": magnitude,
-                "begin_time": begin_time,
-                "end_time": end_time
-                }
-
+        return {
+            "date": date,
+            "separation": separation,
+            "altitude": altitude,
+            "status": status,
+            "max_time": max_time,
+            "magnitude": magnitude,
+            "begin_time": begin_time,
+            "end_time": end_time,
+        }
 
     def get_solar_eclipse_time(self, initial_date: datetime) -> dict:
-        """ 太陽食の最大食の時刻、食分、欠け始めと食の終わりの時刻を計算する """
+        """太陽食の最大食の時刻、食分、欠け始めと食の終わりの時刻を計算する"""
         logger.debug(f"SSOEarth.get_solar_eclipse_time: initial_date={initial_date}")
         from operator import itemgetter
 
         obs = ephem.Observer()
-        obs.elevation = -Constants.EARTH_RADIUS 
+        obs.elevation = -Constants.EARTH_RADIUS
         obs.pressure = 0
-        start_date = ephem.Date(initial_date - (4 * ephem.hour)) # 新月時刻から4時間前
+        start_date = ephem.Date(initial_date - (4 * ephem.hour))  # 新月時刻から4時間前
 
         sun = ephem.Sun()
         moon = ephem.Moon()
 
-        res = []            # [時刻, 食分] のリスト
+        res = []  # [時刻, 食分] のリスト
 
         # 1秒ずつ6時間分　計算繰り返し
         for x in range(0, 28800):
-            obs.date = start_date.datetime() + timedelta(seconds = x)
+            obs.date = start_date.datetime() + timedelta(seconds=x)
 
             # 太陽・月の位置・半径計算
             sun.compute(obs)
             moon.compute(obs)
-            r_s = sun.size/2
-            r_m = moon.size/2
+            r_s = sun.size / 2
+            r_m = moon.size / 2
 
             # 太陽と月の「中心間距離」を計算
-            distance = ephem.separation((sun.az,sun.alt), (moon.az,moon.alt))
+            distance = ephem.separation((sun.az, sun.alt), (moon.az, moon.alt))
 
             # 地球の水平視差（地球の半径が月・太陽の距離でどれだけの角度に見えるか）
             # 月の視差は約1度弱、太陽はごくわずか
-            pi_m = moon.earth_distance * ephem.arcsecond # 月の地心水平視差
+            pi_m = moon.earth_distance * ephem.arcsecond  # 月の地心水平視差
             pi_s = sun.earth_distance * ephem.arcsecond  # 太陽の地心水平視差（ほぼ無視可能）
 
             # 判定式：中心間距離 < (月の半径 + 太陽の半径 + 地球の視差)
             if distance < (r_m + r_s + pi_m):
                 # 日食が発生している（部分食以上）
-                magnitude = (r_m + r_s - distance ) / (r_s * 2)     # 食分計算
+                magnitude = (r_m + r_s - distance) / (r_s * 2)  # 食分計算
             else:
                 magnitude = 0  # 食が発生していない
 
             # 計算結果を追加（時刻、食分）
             res.append([obs.date, magnitude])
-            #if magnitude:
+            # if magnitude:
             #    print(f"date: {obs.date}  magnitude: {magnitude}")
 
         # 食の最大の検索
         max_eclipse = max(res, key=itemgetter(1))
-        max_date  = max_eclipse[0]
+        max_date = max_eclipse[0]
         magnitude = max(0, max_eclipse[1])
         begin_date = None
         end_date = None
@@ -531,11 +548,11 @@ class SSOEarth:
         # 欠け始めと食の終わりの検索
         eclipse = False
         for x in res:
-            if x[1] > 0 :
+            if x[1] > 0:
                 if eclipse == False:
                     begin_date = x[0]
                     eclipse = True
-            else :
+            else:
                 if eclipse == True:
                     end_date = x[0]
                     eclipse = False
